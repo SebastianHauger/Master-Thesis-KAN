@@ -1,7 +1,7 @@
 """code gotten from u-kan paper"""
 
 import torch 
-import torch.functional as F
+import torch.nn.functional as F
 import math
 
 class KANLinear(torch.nn.Module):

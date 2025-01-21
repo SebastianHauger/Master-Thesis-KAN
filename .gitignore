@@ -6,6 +6,7 @@
 *.html
 *.xlsx
 *.hdf5
+test_file.py
 
 
 # macOS specific
