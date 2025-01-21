@@ -1,8 +1,11 @@
-"""code gotten from u-kan paper"""
+"""code gotten from u-kan paper. Here we implement the general building blocks for implementing 
+the KAN part of the code. """
 
 import torch 
 import torch.nn.functional as F
+from torch import nn
 import math
+from convLayers import DW_bn_relu
 
 class KANLinear(torch.nn.Module):
     def __init__(
@@ -232,3 +235,104 @@ class KANLinear(torch.nn.Module):
             regularize_activation * regularization_loss_activation
             + regularize_entropy * regularization_loss_entropy
         )
+        
+        
+class KANLayer(nn.Module):
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., no_kan=False):
+        super().__init__()
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+        self.dim = in_features
+        
+        grid_size=5
+        spline_order=3
+        scale_noise=0.1
+        scale_base=1.0
+        scale_spline=1.0
+        base_activation=torch.nn.SiLU
+        grid_eps=0.02
+        grid_range=[-1, 1]
+
+        if not no_kan:
+            self.fc1 = KANLinear(
+                        in_features,
+                        hidden_features,
+                        grid_size=grid_size,
+                        spline_order=spline_order,
+                        scale_noise=scale_noise,
+                        scale_base=scale_base,
+                        scale_spline=scale_spline,
+                        base_activation=base_activation,
+                        grid_eps=grid_eps,
+                        grid_range=grid_range,
+                    )
+            self.fc2 = KANLinear(
+                        hidden_features,
+                        out_features,
+                        grid_size=grid_size,
+                        spline_order=spline_order,
+                        scale_noise=scale_noise,
+                        scale_base=scale_base,
+                        scale_spline=scale_spline,
+                        base_activation=base_activation,
+                        grid_eps=grid_eps,
+                        grid_range=grid_range,
+                    )
+            self.fc3 = KANLinear(
+                        hidden_features,
+                        out_features,
+                        grid_size=grid_size,
+                        spline_order=spline_order,
+                        scale_noise=scale_noise,
+                        scale_base=scale_base,
+                        scale_spline=scale_spline,
+                        base_activation=base_activation,
+                        grid_eps=grid_eps,
+                        grid_range=grid_range,
+                    )
+        else:
+            self.fc1 = nn.Linear(in_features, hidden_features)
+            self.fc2 = nn.Linear(hidden_features, out_features)
+            self.fc3 = nn.Linear(hidden_features, out_features)
+        
+        
+        self.dwconv_1 = DW_bn_relu(hidden_features)
+        self.dwconv_2 = DW_bn_relu(hidden_features)
+        self.dwconv_3 = DW_bn_relu(hidden_features)
+        self.drop = nn.Dropout(drop)
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02) # they use a timm library, but we might want to simply implement this with something else to reduce package count
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+    
+    def forward(self, x, H, W):
+        # pdb.set_trace()
+        B, N, C = x.shape
+
+        x = self.fc1(x.reshape(B*N,C))
+        x = x.reshape(B,N,C).contiguous()
+        x = self.dwconv_1(x, H, W)
+        x = self.fc2(x.reshape(B*N,C))
+        x = x.reshape(B,N,C).contiguous()
+        x = self.dwconv_2(x, H, W)
+        x = self.fc3(x.reshape(B*N,C))
+        x = x.reshape(B,N,C).contiguous()
+        x = self.dwconv_3(x, H, W)
+
+        # # TODO
+        # x = x.reshape(B,N,C).contiguous()
+        # x = self.dwconv_4(x, H, W)
+    
+        return x
