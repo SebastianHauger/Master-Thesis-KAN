@@ -28,4 +28,4 @@ def train_UKAN(epochs, lr):
     
 
 if __name__=='__main__':
-    pass
+    train_UKAN(2, 0.01)

@@ -235,7 +235,7 @@ class KANLinear(torch.nn.Module):
             regularize_activation * regularization_loss_activation
             + regularize_entropy * regularization_loss_entropy
         )
-        
+
         
 class KANLayer(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., no_kan=False):
@@ -304,7 +304,7 @@ class KANLayer(nn.Module):
     
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02) # they use a timm library, but we might want to simply implement this with something else to reduce package count
+            nn.init.normal_(m.weight, std=.02) # they use a timm library, but we might want to simply implement this with something else to reduce package count
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -338,6 +338,36 @@ class KANLayer(nn.Module):
         return x
     
 
+"""Drop path copied from: will rewrite at a later point if necessary
+https://github.com/FrancescoSaverioZuppichini/DropPath/blob/main/README.ipynb"""  
+
+def drop_path(x, keep_prob = 1.0, inplace = False):
+    mask_shape = (x.shape[0],) + (1,) * (x.ndim - 1) 
+    # remember tuples have the * operator -> (1,) * 3 = (1,1,1)
+    mask = x.new_empty(mask_shape).bernoulli_(keep_prob)
+    mask.div_(keep_prob)
+    if inplace:
+        x.mul_(mask)
+    else:
+        x = x * mask
+    return x
+
+
+
+class DropPath(nn.Module):
+    def __init__(self, p: float = 0.5, inplace: bool = False):
+        super(DropPath, self).__init__()
+        self.p = p
+        self.inplace = inplace
+
+    def forward(self, x):
+        if self.training and self.p > 0:
+            x = drop_path(x, self.p, self.inplace)
+        return x
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(p={self.p})"
+
 class KANBlock(nn.Module):
     def __init__(self, dim, drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, no_kan=False):
         super().__init__()
@@ -352,7 +382,7 @@ class KANBlock(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            nn.init.normal_(m.weight, 0, 0.2) 
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):

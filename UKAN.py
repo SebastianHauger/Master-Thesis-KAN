@@ -5,7 +5,7 @@ from KANlayers import KANBlock
 
 
 class UKAN(nn.Module):
-    def __init__(self, num_classes, input_channels=3, deep_supervision=False, img_size=224, patch_size=16, in_chans=3, embed_dims=[256, 320, 512], no_kan=False,
+    def __init__(self, input_channels=3, deep_supervision=False, img_size=224, patch_size=16, in_chans=3, embed_dims=[256, 320, 512], no_kan=False,
     drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, depths=[1, 1, 1], **kwargs):
         super().__init__()
 
@@ -44,8 +44,8 @@ class UKAN(nn.Module):
             )])
         
         # change num patches to be correct... also think about changing other free params...
-        self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=3, num_patches=3, dropout=0.1)
-        self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=3, num_patches=3, dropout=0.1)
+        self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=3, num_patches=210, dropout=0.1)
+        self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=3, num_patches=210, dropout=0.1)
         
         
         self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1])  
