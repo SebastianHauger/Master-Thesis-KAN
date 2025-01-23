@@ -42,10 +42,12 @@ class UKAN(nn.Module):
             dim=embed_dims[0], 
             drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer
             )])
-        # maybe use their patch embedding 
-        # self.patch_embed3 = PatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0], embed_dim=embed_dims[1])
-        # self.patch_embed4 = PatchEmbed(img_size=img_size // 8, patch_size=3, stride=2, in_chans=embed_dims[1], embed_dim=embed_dims[2])
-
+        
+        # change num patches to be correct... also think about changing other free params...
+        self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=3, num_patches=3, dropout=0.1)
+        self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=3, num_patches=3, dropout=0.1)
+        
+        
         self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1])  
         self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0])  
         self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4) 
@@ -55,8 +57,7 @@ class UKAN(nn.Module):
         self.final = nn.Conv2d(embed_dims[0]//8, num_classes, kernel_size=1)
         self.soft = nn.Softmax(dim =1)
 
-    def forward(self, x):
-        
+    def forward(self, x): 
         B = x.shape[0]
         ### Encoder
         ### Conv Stage
