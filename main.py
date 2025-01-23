@@ -9,8 +9,9 @@ import torch
 
 def train_UKAN(epochs, lr):
     train = get_all_data()
-    train_loader = DataLoader(train, batch_size=64, shuffle=True)
+    train_loader = DataLoader(train, batch_size=8, shuffle=True)
     model=UKAN()
+    model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     
     for _ in range(epochs):
@@ -23,7 +24,7 @@ def train_UKAN(epochs, lr):
             mse = (yp-y).square().mean()
             mse.backward()
             optimizer.zero_grad()
-            bar.set_postfix(loss=mse.detach.item())
+            bar.set_postfix(loss=mse.detach().item())
             
     
 

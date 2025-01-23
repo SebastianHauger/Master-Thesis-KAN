@@ -368,6 +368,7 @@ class DropPath(nn.Module):
     def __repr__(self):
         return f"{self.__class__.__name__}(p={self.p})"
 
+
 class KANBlock(nn.Module):
     def __init__(self, dim, drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, no_kan=False):
         super().__init__()
