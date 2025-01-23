@@ -16,5 +16,3 @@ author = {Benjamin C. Koenig and Suyong Kim and Sili Deng},
 }
 
 and [AAAI' 25] U-KAN Makes Strong Backbone for Medical Image Segmentation and Generation 
-
-In addition the code from https://github.com/AntonioTepsich/Convolutional-KANs will be investigated
