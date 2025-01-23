@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from einops import rearrange
 
 
-def get_all_data() -> torch.Tensor:
+def get_all_data(normalize=True) -> torch.Tensor:
     """
     a function that later will be for getting all data. At the moment we only use it 
     to get a single frame.
@@ -24,7 +24,7 @@ def get_all_data() -> torch.Tensor:
         well_split_name="test",
         n_steps_input=1,
         n_steps_output=1,
-        use_normalization=False
+        use_normalization=False # we have to add some files to be able to use this option at the moment
     )
     return ds
 
