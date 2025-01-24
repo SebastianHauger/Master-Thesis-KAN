@@ -24,7 +24,8 @@ def get_all_data(normalize=True) -> torch.Tensor:
         well_split_name="test",
         n_steps_input=1,
         n_steps_output=1,
-        use_normalization=False # we have to add some files to be able to use this option at the moment
+        use_normalization=normalize # we have to add some files to be able to use this option at the moment
+        
     )
     return ds
 
