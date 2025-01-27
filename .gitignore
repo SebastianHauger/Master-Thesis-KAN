@@ -11,8 +11,6 @@ test_file.py
 # protect information about allocation
 *.sh   
 
-
-
 # macOS specific
 .DS_Store
 .AppleDouble
