@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from einops import rearrange
 
 
-def get_all_data(normalize=True) -> torch.Tensor:
+def get_data(partition, path_to_repo, normalize=True) -> torch.Tensor:
     """
     a function that later will be for getting all data. At the moment we only use it 
     to get a single frame.
@@ -17,15 +17,13 @@ def get_all_data(normalize=True) -> torch.Tensor:
     ones for this project are input/output fields 
     Each of these contain a tensor of shape (n_samples, 256, 512, 3)
     """
-    path_to_repo = "datasets"
     ds = WellDataset(
         well_base_path=path_to_repo,
         well_dataset_name="planetswe",
-        well_split_name="test",
+        well_split_name=partition,
         n_steps_input=1,
         n_steps_output=1,
-        use_normalization=normalize # we have to add some files to be able to use this option at the moment
-        
+        use_normalization=normalize  
     )
     return ds
 
@@ -58,7 +56,7 @@ def plot_an_image_frame(ds, field_names, tt=1007):
 
 
 if __name__=='__main__':
-    ds = get_all_data() 
+    ds = get_data("test") 
     # dsl = load_datafile(ds)
     item = ds[1]
     keyss = list(item.keys()) 

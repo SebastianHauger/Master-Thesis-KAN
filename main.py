@@ -2,16 +2,18 @@
 from torch.utils.data import DataLoader
 from UKAN import UKAN
 from tqdm import tqdm 
-from data import get_all_data
+from data import get_data
 from einops import rearrange
 import torch
 
 
 def train_UKAN(epochs, lr):
+    PATH_TO_BASE_HOME = "datasets"
+    PATH_TO_BASE_ALVIS = "/mimer/NOBACKUP/groups/shallow_ukan/datasets"
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(device)
-    train = get_all_data()
-    train_loader = DataLoader(train, batch_size=8, shuffle=True)
+    train = get_data("train", PATH_TO_BASE_ALVIS)
+    train_loader = DataLoader(train, batch_size=64, shuffle=True)
     model=UKAN()
     model=model.to(device)
     model.train()
