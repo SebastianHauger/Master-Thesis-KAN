@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from einops import rearrange
 
 
+
 def get_data(partition, path_to_repo, normalize=True) -> torch.Tensor:
     """
     a function that later will be for getting all data. At the moment we only use it 
