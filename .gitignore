@@ -8,6 +8,9 @@
 *.hdf5
 test_file.py
 
+# trained model dicts
+*.pth
+
 # protect information about allocation
 *.sh   
 
