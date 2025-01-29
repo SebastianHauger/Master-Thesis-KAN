@@ -130,5 +130,7 @@ class UKAN(nn.Module):
         out = F.sigmoid(F.interpolate(self.decoder5(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"shape {out.shape}")
         out = self.final(out)
+        
+        out = torch.add(out, x)
         # print(f"shape {out.shape}") 
         return out
