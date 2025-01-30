@@ -6,8 +6,20 @@ from torch.nn import init
 
 
 """Also copied from the paper on U-KAN. this file contains the different block structures that we will 
-use inside our U-KAN. including the residual network structure. Note that I do not add patch embedding 
-because i am not sure if it is relevant for this task"""
+use inside our U-KAN. including the residual network structure. """
+
+
+class CustomPad2d(nn.Module):
+    def __init__(self, pad_x=2, pad_y=3):
+        super(CustomPad2d, self).__init__()
+        self.pad_x = pad_x
+        self.pad_y = pad_y 
+        
+    def forward(self, x):
+        x = F.pad(x, (self.pad_x, self.pad_x, 0, 0), mode='circular')  # Circular padding for x direction
+        x = F.pad(x, (0, 0, self.pad_y, self.pad_y), mode='reflect')  # Reflection padding for y direction
+        return x
+        
 
 class DWConv(nn.Module):  # depth wise convolution ¨ 
     def __init__(self, dim=768):
