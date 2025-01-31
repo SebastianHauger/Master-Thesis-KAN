@@ -22,9 +22,13 @@ class CustomPad2d(nn.Module):
         
 
 class DWConv(nn.Module):  # depth wise convolution ¨ 
-    def __init__(self, dim=768):
+    def __init__(self, dim=768, padding=1, pad_x=2, pad_y=3):
         super(DWConv, self).__init__()
-        self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim) 
+        if padding=='custom':
+            self.dwconv = nn.Sequential(CustomPad2d(pad_x, pad_y), nn.Conv2d(dim, dim, 3, 1, padding='valid', bias=True, groups=dim))
+        else:   
+            self.dwconv = nn.Conv2d(dim, dim, 3, 1, padding=padding, bias=True, groups=dim) 
+            
 
     def forward(self, x, H, W):
         B, N, C = x.shape
@@ -35,9 +39,9 @@ class DWConv(nn.Module):  # depth wise convolution ¨
 
 
 class DW_bn_relu(nn.Module):
-    def __init__(self, dim=768):
+    def __init__(self, dim=768, padding=1, pad_x=2, pad_y=3):
         super(DW_bn_relu, self).__init__()
-        self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
+        self.dwconv = DWConv(dim, padding, pad_x, pad_y)
         self.bn = nn.BatchNorm2d(dim)
         self.relu = nn.ReLU()
 
@@ -52,32 +56,56 @@ class DW_bn_relu(nn.Module):
         return x
 
 class ConvLayer(nn.Module):
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, padding=1, pad_x=2, pad_y=3):
         super(ConvLayer, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
-        )
+        if padding=='custom':
+            self.conv = nn.Sequential(
+                    CustomPad2d(pad_x, pad_y),
+                    nn.Conv2d(in_ch, out_ch, 3, padding='valid'),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True),
+                    CustomPad2d(pad_x, pad_y),
+                    nn.Conv2d(in_ch, out_ch, 3, padding='valid'),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True)
+                )  
+        else:
+            self.conv = nn.Sequential(
+                    nn.Conv2d(in_ch, out_ch, 3, padding=padding),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(in_ch, out_ch, 3, padding=padding),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True)
+                ) 
 
     def forward(self, input):
         return self.conv(input)
 
 
 class D_ConvLayer(nn.Module):
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, padding=1, pad_x=2, pad_y=3):
         super(D_ConvLayer, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, in_ch, 3, padding=1),
-            nn.BatchNorm2d(in_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
-        )
+        if padding=='custom':
+            self.conv = nn.Sequential(
+                    CustomPad2d(pad_x, pad_y),
+                    nn.Conv2d(in_ch, in_ch, 3, padding='valid'),
+                    nn.BatchNorm2d(in_ch),
+                    nn.ReLU(inplace=True),
+                    CustomPad2d(pad_x, pad_y),
+                    nn.Conv2d(in_ch, out_ch, 3, padding='valid'),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True)
+                )  
+        else:
+            self.conv = nn.Sequential(
+                    nn.Conv2d(in_ch, in_ch, 3, padding=padding),
+                    nn.BatchNorm2d(in_ch),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(in_ch, out_ch, 3, padding=padding),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True)
+                )  
 
     def forward(self, input):
         return self.conv(input)
@@ -91,9 +119,6 @@ class ConvPatchEmbed(nn.Module):
                                      kernel_size=patch_s, 
                                      stride=patch_s)
         self.patch_size = patch_s
-        self.cls_token = nn.Parameter(torch.randn(size=(1,1,out_ch)), requires_grad=True)
-        self.pos_embed = nn.Parameter(torch.randn(size=(1, num_patches+1, out_ch)), requires_grad=True)
-        self.dropout = nn.Dropout(p=dropout)
         
         
     def forward(self, x):
