@@ -96,7 +96,7 @@ class UKAN(nn.Module):
         ### Stage 4
         out = F.relu(F.interpolate(self.decoder1(out), scale_factor=(2,2), mode ='bilinear'))
         # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
-        out = torch.add(out, t4)
+        out = torch.cat((out, t4), 1)
         _, _, H, W = out.shape
         out = out.flatten(2).transpose(1,2)
         for i, blk in enumerate(self.dblock1):
@@ -109,7 +109,7 @@ class UKAN(nn.Module):
         # print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder2(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"shape {out.shape}")
-        out = torch.add(out,t3)
+        out = torch.cat((out,t3), 1)
         # print(f"shape {out.shape}")
         _,_,H,W = out.shape
         out = out.flatten(2).transpose(1,2)
@@ -121,11 +121,11 @@ class UKAN(nn.Module):
         # print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder3(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"shape {out.shape}")
-        out = torch.add(out,t2)
+        out = torch.cat((out,t2), 1)
         # print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder4(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"shape {out.shape}")
-        out = torch.add(out,t1)
+        out = torch.cat((out,t1), 1)
         # print(f"shape {out.shape}")
         out = F.sigmoid(F.interpolate(self.decoder5(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"shape {out.shape}")
