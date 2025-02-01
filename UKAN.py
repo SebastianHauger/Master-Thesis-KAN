@@ -34,12 +34,12 @@ class UKAN(nn.Module):
             )])
 
         self.dblock1 = nn.ModuleList([KANBlock(
-            dim=embed_dims[1], 
+            dim=2*embed_dims[1], dim2 =embed_dims[1],
             drop=drop_rate, drop_path=dpr[0], norm_layer=norm_layer
             )])
 
         self.dblock2 = nn.ModuleList([KANBlock(
-            dim=embed_dims[0], 
+            dim=2*embed_dims[0], dim2=embed_dims[0],
             drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer
             )])
         
@@ -51,64 +51,66 @@ class UKAN(nn.Module):
         self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1])  
         self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0])  
         self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4) 
-        self.decoder4 = D_ConvLayer(embed_dims[0]//4, embed_dims[0]//8)
-        self.decoder5 = D_ConvLayer(embed_dims[0]//8, embed_dims[0]//8)
+        self.decoder4 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8)
+        self.decoder5 = D_ConvLayer(embed_dims[0]//4, embed_dims[0]//8)
         self.final = nn.Conv2d(32, 3, 3, 1, 1)
 
     def forward(self, x): 
         B = x.shape[0]
         ### Encoder
         ### Conv Stage
-        # print(f"shape {x.shape} size = {x.shape[0]*x.shape[1]*x.shape[2]*x.shape[3]}")
+        print(f"shape {x.shape} size = {x.shape[0]*x.shape[1]*x.shape[2]*x.shape[3]}")
         ### Stage 1
         out = F.relu(F.max_pool2d(self.encoder1(x), 2, 2))
         t1 = out
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 2
         out = F.relu(F.max_pool2d(self.encoder2(out), 2, 2))
         t2 = out
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 3
         out = F.relu(F.max_pool2d(self.encoder3(out), 2, 2))
         t3 = out
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
 
         ### Tokenized KAN Stage
         ### Stage 4
 
         out, H, W = self.patch_embed3(out)
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block1):
             out = blk(out, H, W)
         out = self.norm3(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         t4 = out
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
 
         ### Bottleneck
 
         out, H, W= self.patch_embed4(out)
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block2):
             out = blk(out, H, W)
         out = self.norm4(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 4
         out = F.relu(F.interpolate(self.decoder1(out), scale_factor=(2,2), mode ='bilinear'))
-        # print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         out = torch.cat((out, t4), 1)
+        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         _, _, H, W = out.shape
         out = out.flatten(2).transpose(1,2)
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         ### Stage 3
         out = self.dnorm3(out)
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder2(out),scale_factor=(2,2),mode ='bilinear'))
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = torch.cat((out,t3), 1)
         # print(f"shape {out.shape}")
         _,_,H,W = out.shape
@@ -117,14 +119,15 @@ class UKAN(nn.Module):
         for i, blk in enumerate(self.dblock2):
             out = blk(out, H, W)
         out = self.dnorm4(out)
+        print(f"after secon decKAN shape {out.shape}")
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder3(out),scale_factor=(2,2),mode ='bilinear'))
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = torch.cat((out,t2), 1)
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder4(out),scale_factor=(2,2),mode ='bilinear'))
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = torch.cat((out,t1), 1)
         # print(f"shape {out.shape}")
         out = F.sigmoid(F.interpolate(self.decoder5(out),scale_factor=(2,2),mode ='bilinear'))

@@ -38,10 +38,14 @@ class DWConv(nn.Module):  # depth wise convolution ¨
         return x
 
 
+
 class DW_bn_relu(nn.Module):
     def __init__(self, dim=768, padding=1, pad_x=2, pad_y=3):
         super(DW_bn_relu, self).__init__()
-        self.dwconv = DWConv(dim, padding, pad_x, pad_y)
+        if padding=='custom':
+            self.dwconv = nn.Sequential(CustomPad2d(pad_x, pad_y), nn.Conv2d(dim, dim, 3, 1, padding='valid', bias=True, groups=dim))
+        else:   
+            self.dwconv = nn.Conv2d(dim, dim, 3, 1, padding=padding, bias=True, groups=dim) 
         self.bn = nn.BatchNorm2d(dim)
         self.relu = nn.ReLU()
 
@@ -65,7 +69,7 @@ class ConvLayer(nn.Module):
                     nn.BatchNorm2d(out_ch),
                     nn.ReLU(inplace=True),
                     CustomPad2d(pad_x, pad_y),
-                    nn.Conv2d(in_ch, out_ch, 3, padding='valid'),
+                    nn.Conv2d(out_ch, out_ch, 3, padding='valid'),
                     nn.BatchNorm2d(out_ch),
                     nn.ReLU(inplace=True)
                 )  
@@ -74,7 +78,7 @@ class ConvLayer(nn.Module):
                     nn.Conv2d(in_ch, out_ch, 3, padding=padding),
                     nn.BatchNorm2d(out_ch),
                     nn.ReLU(inplace=True),
-                    nn.Conv2d(in_ch, out_ch, 3, padding=padding),
+                    nn.Conv2d(out_ch, out_ch, 3, padding=padding),
                     nn.BatchNorm2d(out_ch),
                     nn.ReLU(inplace=True)
                 ) 

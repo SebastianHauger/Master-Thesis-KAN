@@ -12,11 +12,18 @@ import numpy as np
 PATH_TO_BASE_HOME = "datasets"
 PATH_TO_BASE_ALVIS = "/mimer/NOBACKUP/groups/shallow_ukan/datasets"
 
+def get_data_helper(split, home):
+    if home:
+        split="test"
+        return get_data(split, PATH_TO_BASE_HOME)
+    else:
+        return get_data(split, PATH_TO_BASE_ALVIS)
 
-def train_UKAN(epochs, lr, device, bs=64):
+
+def train_UKAN(epochs, lr, device, bs=64, home=False):
     print(device)
-    train = get_data("train", PATH_TO_BASE_ALVIS)
-    val = get_data("valid", PATH_TO_BASE_ALVIS)
+    train = get_data_helper("train", home)
+    val = get_data_helper("valid", home)
     train_loader = DataLoader(train, batch_size=bs, shuffle=True)
     val_loader = DataLoader(val, batch_size=bs, shuffle=False)
     model=UKAN()
@@ -55,8 +62,8 @@ def train_UKAN(epochs, lr, device, bs=64):
     return model 
                 
                  
-def test_model(model, device, bs=64):
-    test = get_data("test", PATH_TO_BASE_HOME)
+def test_model(model, device, bs=64, home=False):
+    test = get_data_helper("test", home)
     test_loader = DataLoader(test, bs, shuffle=False)
     with torch.no_grad():
         vrmse = 0
@@ -114,7 +121,7 @@ def plot_prediction(model, device):
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = train_UKAN(2, 0.01, device)
+    model = train_UKAN(1, 0.01, device, bs=1, home=True)
     # model = load_trained_UKAN(device)
     test_model(model, device) 
     # plot_prediction(model, device)

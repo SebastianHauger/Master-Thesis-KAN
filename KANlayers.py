@@ -243,6 +243,7 @@ class KANLayer(nn.Module):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.dim = in_features
+        self.fac = int(in_features/out_features)
         
         grid_size=5
         spline_order=3
@@ -268,7 +269,7 @@ class KANLayer(nn.Module):
                     )
             self.fc2 = KANLinear(
                         hidden_features,
-                        out_features,
+                        hidden_features,
                         grid_size=grid_size,
                         spline_order=spline_order,
                         scale_noise=scale_noise,
@@ -298,7 +299,7 @@ class KANLayer(nn.Module):
         
         self.dwconv_1 = DW_bn_relu(hidden_features)
         self.dwconv_2 = DW_bn_relu(hidden_features)
-        self.dwconv_3 = DW_bn_relu(hidden_features)
+        self.dwconv_3 = DW_bn_relu(out_features)
         self.drop = nn.Dropout(drop)
         self.apply(self._init_weights)
     
@@ -320,21 +321,17 @@ class KANLayer(nn.Module):
     def forward(self, x, H, W):
         # pdb.set_trace()
         B, N, C = x.shape
-
+        # add option to reduce the size of this... 
         x = self.fc1(x.reshape(B*N,C))
         x = x.reshape(B,N,C).contiguous()
         x = self.dwconv_1(x, H, W)
-        x = self.fc2(x.reshape(B*N,C))
+        x = self.fc2(x.reshape(B*N,C)) 
         x = x.reshape(B,N,C).contiguous()
         x = self.dwconv_2(x, H, W)
         x = self.fc3(x.reshape(B*N,C))
+        C = int(C/self.fac)
         x = x.reshape(B,N,C).contiguous()
         x = self.dwconv_3(x, H, W)
-
-        # # TODO
-        # x = x.reshape(B,N,C).contiguous()
-        # x = self.dwconv_4(x, H, W)
-    
         return x
     
 
@@ -370,14 +367,16 @@ class DropPath(nn.Module):
 
 
 class KANBlock(nn.Module):
-    def __init__(self, dim, drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, no_kan=False):
+    def __init__(self, dim, dim2=None, drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, no_kan=False):
         super().__init__()
-
+        if dim2 is None:
+            dim2 = dim
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim)
+        self.fac = int(dim/dim2)
 
-        self.layer = KANLayer(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, no_kan=no_kan)
+        self.layer = KANLayer(in_features=dim, hidden_features=mlp_hidden_dim, out_features=dim2, act_layer=act_layer, drop=drop, no_kan=no_kan)
 
         self.apply(self._init_weights)
 
@@ -397,6 +396,13 @@ class KANBlock(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
-        x = x + self.drop_path(self.layer(self.norm2(x), H, W))
-
+        if self.fac==1:
+            x = x + self.drop_path(self.layer(self.norm2(x), H, W)) 
+        else: # note fac should never be < 1
+            x1 = self.drop_path(self.layer(self.norm2(x), H, W))
+            print(x1.shape)
+            print(x.shape)
+            x2 = F.max_pool2d(x, (1,2), (1,2))
+            print(x2.shape)
+            x = x1 + x2
         return x
