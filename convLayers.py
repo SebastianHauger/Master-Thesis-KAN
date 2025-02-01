@@ -22,7 +22,7 @@ class CustomPad2d(nn.Module):
         
 
 class DWConv(nn.Module):  # depth wise convolution ¨ 
-    def __init__(self, dim=768, padding=1, pad_x=2, pad_y=3):
+    def __init__(self, dim=768, padding=1, pad_x=1, pad_y=1):
         super(DWConv, self).__init__()
         if padding=='custom':
             self.dwconv = nn.Sequential(CustomPad2d(pad_x, pad_y), nn.Conv2d(dim, dim, 3, 1, padding='valid', bias=True, groups=dim))
@@ -40,7 +40,7 @@ class DWConv(nn.Module):  # depth wise convolution ¨
 
 
 class DW_bn_relu(nn.Module):
-    def __init__(self, dim=768, padding=1, pad_x=2, pad_y=3):
+    def __init__(self, dim=768, padding=1, pad_x=1, pad_y=1):
         super(DW_bn_relu, self).__init__()
         if padding=='custom':
             self.dwconv = nn.Sequential(CustomPad2d(pad_x, pad_y), nn.Conv2d(dim, dim, 3, 1, padding='valid', bias=True, groups=dim))
@@ -60,7 +60,7 @@ class DW_bn_relu(nn.Module):
         return x
 
 class ConvLayer(nn.Module):
-    def __init__(self, in_ch, out_ch, padding=1, pad_x=2, pad_y=3):
+    def __init__(self, in_ch, out_ch, padding=1, pad_x=1, pad_y=1):
         super(ConvLayer, self).__init__()
         if padding=='custom':
             self.conv = nn.Sequential(
@@ -88,7 +88,7 @@ class ConvLayer(nn.Module):
 
 
 class D_ConvLayer(nn.Module):
-    def __init__(self, in_ch, out_ch, padding=1, pad_x=2, pad_y=3):
+    def __init__(self, in_ch, out_ch, padding=1, pad_x=1, pad_y=1):
         super(D_ConvLayer, self).__init__()
         if padding=='custom':
             self.conv = nn.Sequential(

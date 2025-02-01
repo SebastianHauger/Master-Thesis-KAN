@@ -238,7 +238,7 @@ class KANLinear(torch.nn.Module):
 
         
 class KANLayer(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., no_kan=False):
+    def __init__(self, in_features, padding, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., no_kan=False):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -297,9 +297,9 @@ class KANLayer(nn.Module):
             self.fc3 = nn.Linear(hidden_features, out_features)
         
         
-        self.dwconv_1 = DW_bn_relu(hidden_features)
-        self.dwconv_2 = DW_bn_relu(hidden_features)
-        self.dwconv_3 = DW_bn_relu(out_features)
+        self.dwconv_1 = DW_bn_relu(hidden_features, padding)
+        self.dwconv_2 = DW_bn_relu(hidden_features, padding)
+        self.dwconv_3 = DW_bn_relu(out_features, padding)
         self.drop = nn.Dropout(drop)
         self.apply(self._init_weights)
     
@@ -367,7 +367,7 @@ class DropPath(nn.Module):
 
 
 class KANBlock(nn.Module):
-    def __init__(self, dim, dim2=None, drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, no_kan=False):
+    def __init__(self, dim, dim2=None, padding=1, drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, no_kan=False):
         super().__init__()
         if dim2 is None:
             dim2 = dim
@@ -376,7 +376,7 @@ class KANBlock(nn.Module):
         mlp_hidden_dim = int(dim)
         self.fac = int(dim/dim2)
 
-        self.layer = KANLayer(in_features=dim, hidden_features=mlp_hidden_dim, out_features=dim2, act_layer=act_layer, drop=drop, no_kan=no_kan)
+        self.layer = KANLayer(in_features=dim, padding=padding, hidden_features=mlp_hidden_dim, out_features=dim2, act_layer=act_layer, drop=drop, no_kan=no_kan)
 
         self.apply(self._init_weights)
 

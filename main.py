@@ -20,13 +20,13 @@ def get_data_helper(split, home):
         return get_data(split, PATH_TO_BASE_ALVIS)
 
 
-def train_UKAN(epochs, lr, device, bs=64, home=False):
+def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
     print(device)
     train = get_data_helper("train", home)
     val = get_data_helper("valid", home)
     train_loader = DataLoader(train, batch_size=bs, shuffle=True)
     val_loader = DataLoader(val, batch_size=bs, shuffle=False)
-    model=UKAN()
+    model=UKAN(padding=padding)
     model=model.to(device)
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -121,7 +121,7 @@ def plot_prediction(model, device):
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = train_UKAN(1, 0.01, device, bs=1, home=True)
+    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
     # model = load_trained_UKAN(device)
     test_model(model, device) 
     # plot_prediction(model, device)

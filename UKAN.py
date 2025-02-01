@@ -4,16 +4,27 @@ from convLayers import *
 from KANlayers import KANBlock
 
 
+
+
 class UKAN(nn.Module):
-    def __init__(self, input_channels=3, deep_supervision=False, img_size=224, patch_size=16, in_chans=3, embed_dims=[256, 320, 512], no_kan=False,
-    drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, depths=[1, 1, 1], **kwargs):
+    def __init__(self, embed_dims=[256, 320, 512], drop_rate=0., drop_path_rate=0., 
+                 norm_layer=nn.LayerNorm, depths=[1, 1, 1], padding='uniform', **kwargs):
+        """Let padding be in ['uniform', 'asym_1', 'asym_all'] depending on if we 
+        want to use the custom padding in none of the layers, in the first and last layer only, 
+        or if we want to use it for all convolutional layers."""
         super().__init__()
-
+        if padding == 'asym_1':
+            padding = ['custom'] + 11*[1] + ['custom']
+        elif padding == 'asym_all':
+            padding = ['custom'] * 13
+        elif padding == 'uniform':
+            padding = [1] * 13
+        else: raise AttributeError("padding is not in ['uniform', 'asym_1', 'asym_all']")
+            
         kan_input_dim = embed_dims[0]
-
-        self.encoder1 = ConvLayer(3, kan_input_dim//8)  
-        self.encoder2 = ConvLayer(kan_input_dim//8, kan_input_dim//4)  
-        self.encoder3 = ConvLayer(kan_input_dim//4, kan_input_dim)
+        self.encoder1 = ConvLayer(3, kan_input_dim//8, padding=padding[0])  
+        self.encoder2 = ConvLayer(kan_input_dim//8, kan_input_dim//4, padding=padding[1])  
+        self.encoder3 = ConvLayer(kan_input_dim//4, kan_input_dim, padding=padding[2])
 
         self.norm3 = norm_layer(embed_dims[1])
         self.norm4 = norm_layer(embed_dims[2])
@@ -25,22 +36,22 @@ class UKAN(nn.Module):
 
         self.block1 = nn.ModuleList([KANBlock(
             dim=embed_dims[1], 
-            drop=drop_rate, drop_path=dpr[0], norm_layer=norm_layer
+            drop=drop_rate, drop_path=dpr[0], norm_layer=norm_layer, padding=padding[3]
             )])
 
         self.block2 = nn.ModuleList([KANBlock(
             dim=embed_dims[2],
-            drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer
+            drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer, padding=padding[4]
             )])
 
         self.dblock1 = nn.ModuleList([KANBlock(
             dim=2*embed_dims[1], dim2 =embed_dims[1],
-            drop=drop_rate, drop_path=dpr[0], norm_layer=norm_layer
+            drop=drop_rate, drop_path=dpr[0], norm_layer=norm_layer, padding=padding[5]
             )])
 
         self.dblock2 = nn.ModuleList([KANBlock(
             dim=2*embed_dims[0], dim2=embed_dims[0],
-            drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer
+            drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer, padding=padding[6]
             )])
         
         # change num patches to be correct... also think about changing other free params...
@@ -48,12 +59,11 @@ class UKAN(nn.Module):
         self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=2, num_patches=210, dropout=0.1)
         
         
-        self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1])  
-        self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0])  
-        self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4) 
-        self.decoder4 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8)
-        self.decoder5 = D_ConvLayer(embed_dims[0]//4, embed_dims[0]//8)
-        self.final = nn.Conv2d(32, 3, 3, 1, 1)
+        self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1], padding[7])  
+        self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0], padding[8])  
+        self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4, padding[9]) 
+        self.decoder4 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8, padding[10])
+        self.decoder5 = D_ConvLayer(embed_dims[0]//4, 3, padding[11])
 
     def forward(self, x): 
         B = x.shape[0]
@@ -129,11 +139,9 @@ class UKAN(nn.Module):
         out = F.relu(F.interpolate(self.decoder4(out),scale_factor=(2,2),mode ='bilinear'))
         print(f"shape {out.shape}")
         out = torch.cat((out,t1), 1)
-        # print(f"shape {out.shape}")
+        print(f"shape {out.shape}")
         out = F.sigmoid(F.interpolate(self.decoder5(out),scale_factor=(2,2),mode ='bilinear'))
-        # print(f"shape {out.shape}")
-        out = self.final(out)
-        
+        print(f"shape {out.shape}")
         out = torch.add(out, x)
         # print(f"shape {out.shape}") 
         return out
