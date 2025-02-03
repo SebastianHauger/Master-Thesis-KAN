@@ -81,9 +81,7 @@ class UKAN(nn.Module):
         t3 = out
         print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
 
-        ### Tokenized KAN Stage
-        ### Stage 4
-
+        ### Stage 4 - KAN encoder 
         out, H, W = self.patch_embed3(out)
         print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block1):
@@ -93,8 +91,8 @@ class UKAN(nn.Module):
         t4 = out
         print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
 
+        
         ### Bottleneck
-
         out, H, W= self.patch_embed4(out)
         print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block2):
@@ -102,25 +100,20 @@ class UKAN(nn.Module):
         out = self.norm4(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
-        ### Stage 4
-        out = F.relu(F.interpolate(self.decoder1(out), scale_factor=(2,2), mode ='bilinear'))
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
-        out = torch.cat((out, t4), 1)
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        
+       
         _, _, H, W = out.shape
         out = out.flatten(2).transpose(1,2)
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
         print(f"shape {out.shape}")
-        ### Stage 3
+        
+        
+        ### Stage 3-- Decoder part
         out = self.dnorm3(out)
-        print(f"shape {out.shape}")
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         print(f"shape {out.shape}")
-        out = F.relu(F.interpolate(self.decoder2(out),scale_factor=(2,2),mode ='bilinear'))
-        print(f"shape {out.shape}")
-        out = torch.cat((out,t3), 1)
-        # print(f"shape {out.shape}")
+        out = torch.cat((out, t4), 1)
         _,_,H,W = out.shape
         out = out.flatten(2).transpose(1,2)
         # print(f"shape {out.shape}")
@@ -129,6 +122,7 @@ class UKAN(nn.Module):
         out = self.dnorm4(out)
         print(f"after secon decKAN shape {out.shape}")
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        out = torch.cat((out, t3), 1)
         print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder3(out),scale_factor=(2,2),mode ='bilinear'))
         print(f"shape {out.shape}")
