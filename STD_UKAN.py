@@ -61,9 +61,7 @@ class UKAN(nn.Module):
         
         self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1], padding[7])  
         self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0], padding[8])  
-        self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4, padding[9]) 
-        self.decoder4 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8, padding[10])
-        self.decoder5 = D_ConvLayer(embed_dims[0]//4, 3, padding[11])
+        self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4, padding[9])
 
     def forward(self, x): 
         B = x.shape[0]
