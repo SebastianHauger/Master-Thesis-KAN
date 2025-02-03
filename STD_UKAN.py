@@ -58,10 +58,10 @@ class UKAN(nn.Module):
         self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=2, num_patches=210, dropout=0.1)
         self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=2, num_patches=210, dropout=0.1)
         
-        
-        self.decoder1 = D_ConvLayer(embed_dims[2], embed_dims[1], padding[7])  
+        # match decoder names with input names to make more sense.
+        self.decoder3 = D_ConvLayer(embed_dims[2], embed_dims[1], padding[7])  
         self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0], padding[8])  
-        self.decoder3 = D_ConvLayer(embed_dims[0], embed_dims[0]//4, padding[9])
+        self.decoder1 = D_ConvLayer(embed_dims[0], embed_dims[0]//4, padding[9])
 
     def forward(self, x): 
         B = x.shape[0]
@@ -107,11 +107,10 @@ class UKAN(nn.Module):
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
         print(f"shape {out.shape}")
-        
-        
-        ### Stage 3-- Decoder part
         out = self.dnorm3(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        
+        ### Stage 4-- Kan decoder 
         print(f"shape {out.shape}")
         out = torch.cat((out, t4), 1)
         _,_,H,W = out.shape
@@ -122,18 +121,26 @@ class UKAN(nn.Module):
         out = self.dnorm4(out)
         print(f"after secon decKAN shape {out.shape}")
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        
+        #Stage 3 -- decoder 
         out = torch.cat((out, t3), 1)
         print(f"shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder3(out),scale_factor=(2,2),mode ='bilinear'))
         print(f"shape {out.shape}")
+        
+        # Stage 2 -- decoder 
         out = torch.cat((out,t2), 1)
         print(f"shape {out.shape}")
-        out = F.relu(F.interpolate(self.decoder4(out),scale_factor=(2,2),mode ='bilinear'))
+        out = F.relu(F.interpolate(self.decoder2(out),scale_factor=(2,2),mode ='bilinear'))
         print(f"shape {out.shape}")
+        
+        # Stage 1 -- decoder 
         out = torch.cat((out,t1), 1)
         print(f"shape {out.shape}")
-        out = F.sigmoid(F.interpolate(self.decoder5(out),scale_factor=(2,2),mode ='bilinear'))
+        out = F.sigmoid(F.interpolate(self.decoder1(out),scale_factor=(2,2),mode ='bilinear'))
         print(f"shape {out.shape}")
+        
+        # Final stage. Add input so output will model grad(f)
         out = torch.add(out, x)
         # print(f"shape {out.shape}") 
         return out
