@@ -116,21 +116,35 @@ class D_ConvLayer(nn.Module):
 
 
 class ConvPatchEmbed(nn.Module):
-    def __init__(self,in_ch, out_ch, patch_s, num_patches, dropout=0.2): 
+    def __init__(self,in_ch, out_ch, patch_s): 
         super(ConvPatchEmbed, self).__init__()
         self.project = nn.Conv2d(in_channels=in_ch,
                                      out_channels=out_ch, 
                                      kernel_size=patch_s, 
-                                     stride=patch_s)
+                                     stride=patch_s, padding='valid')
         self.patch_size = patch_s
         
         
     def forward(self, x):
         B, C, H, W = x.shape
         x = self.project(x)
+        B2, C2, H2, W2 = x.shape
         x = x.flatten(2).transpose(1, 2) # from timm, BCHW -> BNC
+        print(H/H2, W/W2)
         H = int(H/self.patch_size)
         W = int(W/self.patch_size)
         # print(H, W)
         return x, H, W
-        
+
+
+class InvPatchEmbed(nn.Module):
+    def __init__(self, in_ch, out_ch, patch_s):
+        super().__init__()
+        self.deconv = nn.ConvTranspose2d(
+            in_channels=in_ch, out_channels=out_ch,
+            kernel_size=patch_s, stride=patch_s, padding=(0,0))
+    
+    def forward(self, x):
+        return self.deconv(x)
+    
+    

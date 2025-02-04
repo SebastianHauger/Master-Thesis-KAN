@@ -1,6 +1,6 @@
 """root of the simulation. Run files from here."""
 from torch.utils.data import DataLoader
-from UKAN import UKAN
+from STD_UKAN import UKAN
 from tqdm import tqdm 
 from data import get_data
 from einops import rearrange

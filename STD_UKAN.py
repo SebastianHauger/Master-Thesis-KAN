@@ -29,8 +29,8 @@ class UKAN(nn.Module):
         self.norm3 = norm_layer(embed_dims[1])
         self.norm4 = norm_layer(embed_dims[2])
 
-        self.dnorm3 = norm_layer(embed_dims[1])
-        self.dnorm4 = norm_layer(embed_dims[0])
+        self.dnorm3 = norm_layer(embed_dims[2])
+        self.dnorm4 = norm_layer(2*embed_dims[1])
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
 
@@ -44,101 +44,106 @@ class UKAN(nn.Module):
             drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer, padding=padding[4]
             )])
 
-        self.dblock1 = nn.ModuleList([KANBlock(
-            dim=2*embed_dims[1], dim2 =embed_dims[1],
+        self.dblock2 = nn.ModuleList([KANBlock(
+            dim=embed_dims[2], dim2 =embed_dims[2],
             drop=drop_rate, drop_path=dpr[0], norm_layer=norm_layer, padding=padding[5]
             )])
 
-        self.dblock2 = nn.ModuleList([KANBlock(
-            dim=2*embed_dims[0], dim2=embed_dims[0],
+        self.dblock1 = nn.ModuleList([KANBlock(
+            dim=2*embed_dims[1],
             drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer, padding=padding[6]
             )])
         
         # change num patches to be correct... also think about changing other free params...
-        self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=2, num_patches=210, dropout=0.1)
-        self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=2, num_patches=210, dropout=0.1)
+        self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=2)
+        self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=2)
+        self.inv_patch_embed4 = InvPatchEmbed(embed_dims[2], embed_dims[1], patch_s=2)
+        self.inv_patch_embed3 = InvPatchEmbed(2*embed_dims[1], embed_dims[0], patch_s=2)
         
         # match decoder names with input names to make more sense.
-        self.decoder3 = D_ConvLayer(embed_dims[2], embed_dims[1], padding[7])  
-        self.decoder2 = D_ConvLayer(embed_dims[1], embed_dims[0], padding[8])  
-        self.decoder1 = D_ConvLayer(embed_dims[0], embed_dims[0]//4, padding[9])
+        self.decoder3 = D_ConvLayer(embed_dims[2], embed_dims[0]//4, padding[7])  
+        self.decoder2 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8, padding[8])  
+        self.decoder1 = D_ConvLayer(embed_dims[0]//4, 3, padding[9])
 
     def forward(self, x): 
         B = x.shape[0]
         ### Encoder
         ### Conv Stage
-        print(f"shape {x.shape} size = {x.shape[0]*x.shape[1]*x.shape[2]*x.shape[3]}")
+        print(f"Stage 1shape {x.shape} size = {x.shape[0]*x.shape[1]*x.shape[2]*x.shape[3]}")
         ### Stage 1
         out = F.relu(F.max_pool2d(self.encoder1(x), 2, 2))
         t1 = out
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"Stage 2 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 2
         out = F.relu(F.max_pool2d(self.encoder2(out), 2, 2))
         t2 = out
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"Stage 3 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 3
         out = F.relu(F.max_pool2d(self.encoder3(out), 2, 2))
         t3 = out
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
+        print(f"Stage 4 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
 
         ### Stage 4 - KAN encoder 
         out, H, W = self.patch_embed3(out)
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
+        print(f"Stage 4' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block1):
             out = blk(out, H, W)
         out = self.norm3(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         t4 = out
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f"Bottleneck shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
 
         
         ### Bottleneck
         out, H, W= self.patch_embed4(out)
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
+        print(f"Bottleneck' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block2):
             out = blk(out, H, W)
         out = self.norm4(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        print(f"shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        print(f" Bottleneck 2 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         
        
-        _, _, H, W = out.shape
+        _,_, H, W = out.shape
+        print(f"Bottleneck 2' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         out = out.flatten(2).transpose(1,2)
-        for i, blk in enumerate(self.dblock1):
+        print(f"Bottleneck 2' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
+        for i, blk in enumerate(self.dblock2):
             out = blk(out, H, W)
-        print(f"shape {out.shape}")
         out = self.dnorm3(out)
-        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        
+        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous() # returns to original dimension
+        # here we need to reverse the bottom patch embedding in a meaningful way..
+        out = self.inv_patch_embed4(out)
         ### Stage 4-- Kan decoder 
-        print(f"shape {out.shape}")
+        print(f"Stage 4 dec shape {out.shape}")
         out = torch.cat((out, t4), 1)
         _,_,H,W = out.shape
         out = out.flatten(2).transpose(1,2)
-        # print(f"shape {out.shape}")
-        for i, blk in enumerate(self.dblock2):
+        print(f"Stage 4' shape {out.shape}")
+        for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
         out = self.dnorm4(out)
-        print(f"after secon decKAN shape {out.shape}")
+        print(f"after second decKAN shape {out.shape}")
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         
         #Stage 3 -- decoder 
+        out=self.inv_patch_embed3(out)
         out = torch.cat((out, t3), 1)
-        print(f"shape {out.shape}")
+        print(f"Stage 3 shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder3(out),scale_factor=(2,2),mode ='bilinear'))
-        print(f"shape {out.shape}")
+        print(f"Stage 3 out shape {out.shape}")
         
         # Stage 2 -- decoder 
         out = torch.cat((out,t2), 1)
-        print(f"shape {out.shape}")
+        print(f"Stage 2 dec shape {out.shape}")
         out = F.relu(F.interpolate(self.decoder2(out),scale_factor=(2,2),mode ='bilinear'))
-        print(f"shape {out.shape}")
+        print(f"Stage 2 out shape {out.shape}")
         
         # Stage 1 -- decoder 
         out = torch.cat((out,t1), 1)
-        print(f"shape {out.shape}")
+        print(f"Stage 1 dec shape {out.shape}")
         out = F.sigmoid(F.interpolate(self.decoder1(out),scale_factor=(2,2),mode ='bilinear'))
-        print(f"shape {out.shape}")
+        print(f"Stage 1 out shape {out.shape}")
         
         # Final stage. Add input so output will model grad(f)
         out = torch.add(out, x)
