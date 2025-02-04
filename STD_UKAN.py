@@ -100,14 +100,7 @@ class UKAN(nn.Module):
         for i, blk in enumerate(self.block2):
             out = blk(out, H, W)
         out = self.norm4(out)
-        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        print(f" Bottleneck 2 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
-        
-       
-        _,_, H, W = out.shape
-        print(f"Bottleneck 2' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
-        out = out.flatten(2).transpose(1,2)
-        print(f"Bottleneck 2' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
+        ### Second bottleneck block. No reshapding required.
         for i, blk in enumerate(self.dblock2):
             out = blk(out, H, W)
         out = self.dnorm3(out)
