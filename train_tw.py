@@ -10,6 +10,31 @@ import matplotlib.pyplot as plt
 import numpy as np 
 
 
+INFO = {
+    "alvis": {
+        "cpf": "TrainedModels", 
+        "af": "Artifacts",
+        "viz": "Vizualisation",
+        "cp_freq": 5, 
+        "val_freq": 2, 
+        "rollout_val_freq": 5,
+        "max_rollout_steps": 5, 
+        "short_validation_length": 20, 
+        "num_time_intervals": 1
+        }, 
+    "home" : {
+        "cpf": "TrainedModels", 
+        "af": "Artifacts",
+        "viz": "Vizualisation",
+        "cp_freq": 5, 
+        "val_freq": 2, 
+        "rollout_val_freq": 5,
+        "max_rollout_steps": 5, 
+        "short_validation_length": 20, 
+        "num_time_intervals": 1
+        }
+    }
+
 def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter, 
                    checkpoint_frequency, val_frequency, rollout_val_frequency, 
                    max_rollout_steps, short_validation_length, num_time_intervals, 
@@ -71,5 +96,12 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  lr_scheduler=None,
                  device = device, 
                  is_distributed=False, 
-                 
+                 checkpoint_path=checkpoint_path
                  )
+    tr.train()
+    return model
+
+
+if __name__=='__main__':
+    checkpoint_folder = "/Trained models"
+    
