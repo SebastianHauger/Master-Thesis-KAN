@@ -3,42 +3,49 @@ from the_well.benchmark.metrics.spatial import VRMSE
 from torch.utils.data import DataLoader
 from STD_UKAN import UKAN
 from tqdm import tqdm 
-from data import get_data
+from data import get_datamodule
 from einops import rearrange
 import torch
 import matplotlib.pyplot as plt
 import numpy as np 
 
 
+# Note that we stream from the hugging face platfrom while running on
+# home computer since we don't have all splits downloaded.
 INFO = {
     "alvis": {
         "cpf": "TrainedModels", 
         "af": "Artifacts",
         "viz": "Vizualisation",
+        "formatter": "channels_first_default",
         "cp_freq": 5, 
         "val_freq": 2, 
         "rollout_val_freq": 5,
         "max_rollout_steps": 5, 
         "short_validation_length": 20, 
-        "num_time_intervals": 1
+        "num_time_intervals": 1,
+        "ptb": "/mimer/NOBACKUP/groups/shallow_ukan/datasets" 
         }, 
     "home" : {
         "cpf": "TrainedModels", 
         "af": "Artifacts",
         "viz": "Vizualisation",
+        "formatter": "channels_first_default",
         "cp_freq": 5, 
         "val_freq": 2, 
         "rollout_val_freq": 5,
         "max_rollout_steps": 5, 
         "short_validation_length": 20, 
-        "num_time_intervals": 1
+        "num_time_intervals": 1,
+        "ptb": "datasets"
         }
     }
+
 
 def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter, 
                    checkpoint_frequency, val_frequency, rollout_val_frequency, 
                    max_rollout_steps, short_validation_length, num_time_intervals, 
-                   device, checkpoint_path="", padding='uniform'):
+                   device, path_to_base, batch_size, checkpoint_path="", padding='uniform', epochs=1, normalize=True):
     """
     This part of docstring simply copied from The Well documentation for Trainer class 
     Args:
@@ -77,15 +84,22 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
     """
     model = UKAN(padding=padding)
     loss = VRMSE()   # Use same loss as them
+    datamodule = get_datamodule(path_to_repo=path_to_base,
+                                batch_size=batch_size, 
+                                max_rollout_steps=max_rollout_steps, 
+                                normalize=normalize)
+    
+    
     optim = torch.optim.Adam(model.parameters(), lr=0.1)
     tr = Trainer(checkpoint_folder=checkpoint_folder,
                  artifact_folder=artifact_folder, 
                  viz_folder=viz_folder, 
                  formatter=formatter, 
                  model=model, 
-                 datamodule=None, 
+                 datamodule=datamodule, 
                  loss_fn=loss.forward, 
-                 epochs = 1,
+                 epochs = epochs,
+                 optimizer=optim,
                  checkpoint_frequency=checkpoint_frequency,
                  val_frequency=val_frequency,
                  rollout_val_frequency= rollout_val_frequency, 
@@ -99,9 +113,33 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  checkpoint_path=checkpoint_path
                  )
     tr.train()
-    return model
 
 
 if __name__=='__main__':
-    checkpoint_folder = "/Trained models"
+    # print(torch.__version__)
+    b = "alvis"
+    info = INFO[b]
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    padding = 'asym_all'
+    train_and_eval(
+        checkpoint_folder=info["cpf"], 
+        artifact_folder=info["af"],
+        viz_folder=info["viz"],
+        formatter=info["formatter"], 
+        checkpoint_frequency=info["cp_freq"], 
+        val_frequency=info["val_freq"], 
+        rollout_val_frequency=info["rollout_val_freq"],
+        max_rollout_steps=info["max_rollout_steps"],
+        short_validation_length=info["short_validation_length"],
+        num_time_intervals=info["num_time_intervals"], 
+        device=device, 
+        padding=padding, 
+        epochs=1,
+        path_to_base=info["ptb"],
+        batch_size=1, 
+        normalize=False
+        )
+    # note that we can not normalize when we are streaming from hf
+    # otherwise always normalize
+    
     

@@ -130,10 +130,8 @@ class ConvPatchEmbed(nn.Module):
         x = self.project(x)
         B2, C2, H2, W2 = x.shape
         x = x.flatten(2).transpose(1, 2) # from timm, BCHW -> BNC
-        print(H/H2, W/W2)
         H = int(H/self.patch_size)
         W = int(W/self.patch_size)
-        # print(H, W)
         return x, H, W
 
 

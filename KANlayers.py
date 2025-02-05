@@ -400,9 +400,6 @@ class KANBlock(nn.Module):
             x = x + self.drop_path(self.layer(self.norm2(x), H, W)) 
         else: # note fac should never be < 1
             x1 = self.drop_path(self.layer(self.norm2(x), H, W))
-            print(x1.shape)
-            print(x.shape)
             x2 = F.max_pool2d(x, (1,2), (1,2))
-            print(x2.shape)
             x = x1 + x2
         return x

@@ -1,18 +1,18 @@
 """here we add code for loading and alternatively preprocessing data """
 import torch
 import numpy as np
-from the_well.data import WellDataset
+from the_well.data import WellDataset, WellDataModule
 import matplotlib.pyplot as plt
 from einops import rearrange
 
 
 
-def get_data(partition, path_to_repo, normalize=True) -> torch.Tensor:
+def get_dataset(partition, path_to_repo, normalize=True):
     """
-    a function that later will be for getting all data. At the moment we only use it 
-    to get a single frame.
+    A function for getting all data.
     
-    OUTPUT: a WellDataset which is a type of torch DataSet which is structured as 
+    
+    OUTPUT: A WellDataset which is a type of torch DataSet which is structured as 
     First we have a list of each input output pair
     Each instance contains a dictionary with field names where the only relevant 
     ones for this project are input/output fields 
@@ -27,6 +27,24 @@ def get_data(partition, path_to_repo, normalize=True) -> torch.Tensor:
         use_normalization=normalize  
     )
     return ds
+
+
+def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True):
+    """
+    A function for getting all data. 
+    
+    
+    OUTPUT: A WellDataModule which contains batches of Data that we can use together 
+    with other functions and classes from The Well in order to train models in an 
+    efficient way. Note that this loads all available files (test train and valid)
+    """
+    dm = WellDataModule(
+        well_base_path=path_to_repo, 
+        well_dataset_name="planetswe",
+        batch_size=batch_size, 
+        use_normalization=normalize, 
+        max_rollout_steps=5  
+    )
 
 
 def plot_an_image_frame(ds, field_names, tt=1007):
@@ -57,7 +75,7 @@ def plot_an_image_frame(ds, field_names, tt=1007):
 
 
 if __name__=='__main__':
-    ds = get_data("test") 
+    ds = get_dataset("test") 
     # dsl = load_datafile(ds)
     item = ds[1]
     keyss = list(item.keys()) 
