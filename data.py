@@ -45,6 +45,7 @@ def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True):
         use_normalization=normalize, 
         max_rollout_steps=5  
     )
+    return dm 
 
 
 def plot_an_image_frame(ds, field_names, tt=1007):
