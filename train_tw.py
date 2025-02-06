@@ -8,6 +8,7 @@ from einops import rearrange
 import torch
 import matplotlib.pyplot as plt
 import numpy as np 
+import wandb
 
 
 # Note that we stream from the hugging face platfrom while running on
@@ -82,6 +83,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
         checkpoint_path:
             The path to the model checkpoint to load. If empty, the model is trained from scratch.
     """
+    wandb.init()
     model = UKAN(padding=padding).to(device)
     loss = VRMSE()   # Use same loss as them
     datamodule = get_datamodule(path_to_repo=path_to_base,
@@ -113,6 +115,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  checkpoint_path=checkpoint_path
                  )
     tr.train()
+    wandb.finish()
 
 
 if __name__=='__main__':
