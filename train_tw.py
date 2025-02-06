@@ -82,7 +82,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
         checkpoint_path:
             The path to the model checkpoint to load. If empty, the model is trained from scratch.
     """
-    model = UKAN(padding=padding)
+    model = UKAN(padding=padding).to(device)
     loss = VRMSE()   # Use same loss as them
     datamodule = get_datamodule(path_to_repo=path_to_base,
                                 batch_size=batch_size, 
@@ -97,7 +97,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  formatter=formatter, 
                  model=model, 
                  datamodule=datamodule, 
-                 loss_fn=loss.forward, 
+                 loss_fn=loss.eval, 
                  epochs = epochs,
                  optimizer=optim,
                  checkpoint_frequency=checkpoint_frequency,
@@ -120,6 +120,7 @@ if __name__=='__main__':
     b = "alvis"
     info = INFO[b]
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device(device)
     padding = 'asym_all'
     train_and_eval(
         checkpoint_folder=info["cpf"], 
@@ -136,10 +137,11 @@ if __name__=='__main__':
         padding=padding, 
         epochs=1,
         path_to_base=info["ptb"],
-        batch_size=1, 
+        batch_size=36, 
         normalize=False
         )
+    # note factors of 1008 include 36, 63 and 72 which all are relevant batch sizes. 
     # note that we can not normalize when we are streaming from hf
-    # otherwise always normalize
+    # otherwise always normalize N
     
     
