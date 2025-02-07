@@ -139,7 +139,7 @@ if __name__=='__main__':
         num_time_intervals=info["num_time_intervals"], 
         device=device, 
         padding=padding, 
-        epochs=1,
+        epochs=50,
         path_to_base=info["ptb"],
         batch_size=72, 
         normalize=True
