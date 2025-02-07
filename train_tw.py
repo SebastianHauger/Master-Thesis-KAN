@@ -93,6 +93,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
     
     
     optim = torch.optim.Adam(model.parameters(), lr=0.1)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optim, gamma=0.9)
     tr = Trainer(checkpoint_folder=checkpoint_folder,
                  artifact_folder=artifact_folder, 
                  viz_folder=viz_folder, 
@@ -109,7 +110,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  short_validation_length=short_validation_length,
                  make_rollout_videos=False,
                  num_time_intervals=num_time_intervals, 
-                 lr_scheduler=None,
+                 lr_scheduler=scheduler,
                  device = device, 
                  is_distributed=False, 
                  checkpoint_path=checkpoint_path
@@ -140,8 +141,8 @@ if __name__=='__main__':
         padding=padding, 
         epochs=1,
         path_to_base=info["ptb"],
-        batch_size=36, 
-        normalize=False
+        batch_size=72, 
+        normalize=True
         )
     # note factors of 1008 include 36, 63 and 72 which all are relevant batch sizes. 
     # note that we can not normalize when we are streaming from hf
