@@ -138,6 +138,8 @@ class UKAN(nn.Module):
         out = F.sigmoid(F.interpolate(self.decoder1(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"Stage 1 out shape {out.shape}")
         
+        # perhaps we should have a last convolutional layer since we have interpolated???
+        
         # Final stage. Add input so output will model grad(f)
         out = torch.add(out, x)
         # # print(f"shape {out.shape}") 

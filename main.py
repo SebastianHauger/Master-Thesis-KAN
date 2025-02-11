@@ -7,6 +7,8 @@ from einops import rearrange
 import torch
 import matplotlib.pyplot as plt
 import numpy as np 
+import random 
+from the_well.benchmark.metrics import VRMSE
 
 
 PATH_TO_BASE_HOME = "datasets"
@@ -55,6 +57,7 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
                 y = y.to(device)
                 y = rearrange(y, "B To Lx Ly F -> B (To F) Lx Ly")
                 yp = model(x)
+                
                 mse = (yp-y).square().mean()
                 avg_mse = (avg_mse*n + mse)/(n+1) # mooving average MSE
             print(f"validation loss epoch {i}: {avg_mse}")
@@ -80,14 +83,27 @@ def test_model(model, device, bs=64, home=False):
         print(f"vrmse test set: {vrmse}")
             
             
-def load_trained_UKAN(name,device):
+def load_trained_UKAN_ptfile(name,device):
     """assuming model has been trained with cuda."""
     model = UKAN(padding="asym_all")
     if device == 'cpu':
         checkpoint = torch.load("Trained models/"+name, map_location=torch.device('cpu'), weights_only=False)
     else:
         checkpoint = torch.load('Trained models/UKAN.pth', weights_only=False)
+    print(checkpoint.keys())
+    print(checkpoint["validation_loss"])
+    print(checkpoint["epoch"])
     model.load_state_dict(checkpoint["model_state_dict"])
+    model.to(device)
+    return model
+
+def load_trained_UKAN_pth_file(name, device):
+    model = UKAN(padding="uniform")
+    if device == "cpu":
+        checkpoint = torch.load("Trained models/"+name, map_location=torch.device('cpu'))
+    else:
+        checkpoint = torch.load('Trained models/UKAN.pth')
+    model.load_state_dict(checkpoint)
     model.to(device)
     return model
 
@@ -97,13 +113,20 @@ def plot_prediction(model, device, plot_fields):
     test_loader = DataLoader(test, 1, shuffle=False) 
     with torch.no_grad():
         batch = next(iter(test_loader))
+        vrmse = VRMSE()
         x = batch["input_fields"]
         x = x.to(device)
         x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
         y = batch["output_fields"]
         y = y.to(device)
-        y = rearrange(y, "B To Lx Ly F -> B (To F) Lx Ly")
+        # y = rearrange(y, "B To Lx Ly F -> B (To F) Lx Ly")
         yp = model(x)
+        yp = rearrange(yp, "B C Lx Ly -> B 1 Lx Ly C")
+        # print(test.metadata.n_spatial_dims)
+        print(vrmse.eval(yp, y, test.metadata).mean())
+        yp = rearrange(yp, "b f h w c -> b (f c) h w")
+        y = rearrange(y,  "b f h w c -> b (f c) h w")
+
         x = x[0].detach().numpy()
         y = y[0].detach().numpy()
         yp = yp[0].detach().numpy()
@@ -135,6 +158,6 @@ def plot_prediction(model, device, plot_fields):
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN("best.pt", device)
+    model = load_trained_UKAN_pth_file("ukan.pth", device)
     # test_model(model, device) 
     plot_prediction(model, device, True)

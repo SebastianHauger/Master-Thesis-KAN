@@ -29,7 +29,7 @@ def get_dataset(partition, path_to_repo, normalize=True):
     return ds
 
 
-def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True):
+def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True, filters=None):
     """
     A function for getting all data. 
     
@@ -38,13 +38,23 @@ def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True):
     with other functions and classes from The Well in order to train models in an 
     efficient way. Note that this loads all available files (test train and valid)
     """
-    dm = WellDataModule(
-        well_base_path=path_to_repo, 
-        well_dataset_name="planetswe",
-        batch_size=batch_size, 
-        use_normalization=normalize, 
-        max_rollout_steps=5  
-    )
+    if filters is not None:
+        dm = WellDataModule(
+            well_base_path=path_to_repo, 
+            well_dataset_name="planetswe",
+            batch_size=batch_size, 
+            use_normalization=normalize, 
+            max_rollout_steps=5, 
+            exclude_filters=filters
+        )
+    else: 
+        dm = WellDataModule(
+            well_base_path=path_to_repo, 
+            well_dataset_name="planetswe",
+            batch_size=batch_size, 
+            use_normalization=normalize, 
+            max_rollout_steps=5
+            )  
     return dm 
 
 
