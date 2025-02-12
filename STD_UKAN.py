@@ -135,7 +135,7 @@ class UKAN(nn.Module):
         # Stage 1 -- decoder 
         out = torch.cat((out,t1), 1)
         # print(f"Stage 1 dec shape {out.shape}")
-        out = F.sigmoid(F.interpolate(self.decoder1(out),scale_factor=(2,2),mode ='bilinear'))
+        out = F.tanh(F.interpolate(self.decoder1(out),scale_factor=(2,2),mode ='bilinear'))
         # print(f"Stage 1 out shape {out.shape}")
         
         # perhaps we should have a last convolutional layer since we have interpolated???

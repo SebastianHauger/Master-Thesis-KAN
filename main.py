@@ -34,7 +34,7 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     
     for i in tqdm(range(epochs)):
-        for batch in (bar := tqdm(train_loader)):
+        for i,batch in (bar := tqdm(enumerate(train_loader))):
             x = batch["input_fields"]
             x = x.to(device)
             x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
@@ -47,20 +47,22 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
             optimizer.step()
             optimizer.zero_grad()
             bar.set_postfix(loss=mse.detach().item())
-        with torch.no_grad():
-            avg_mse=0
-            for n,batch in enumerate(val_loader):
-                x = batch["input_fields"]
-                x = x.to(device)
-                x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-                y = batch["output_fields"]
-                y = y.to(device)
-                y = rearrange(y, "B To Lx Ly F -> B (To F) Lx Ly")
-                yp = model(x)
+            if i == 100:
+                break
+        # with torch.no_grad():
+        #     avg_mse=0
+        #     for n,batch in enumerate(val_loader):
+        #         x = batch["input_fields"]
+        #         x = x.to(device)
+        #         x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+        #         y = batch["output_fields"]
+        #         y = y.to(device)
+        #         y = rearrange(y, "B To Lx Ly F -> B (To F) Lx Ly")
+        #         yp = model(x)
                 
-                mse = (yp-y).square().mean()
-                avg_mse = (avg_mse*n + mse)/(n+1) # mooving average MSE
-            print(f"validation loss epoch {i}: {avg_mse}")
+        #         mse = (yp-y).square().mean()
+        #         avg_mse = (avg_mse*n + mse)/(n+1) # mooving average MSE
+        #     print(f"validation loss epoch {i}: {avg_mse}")
     torch.save(model.state_dict(), 'UKAN.pth')
     return model 
                 
@@ -157,7 +159,7 @@ def plot_prediction(model, device, plot_fields):
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_pth_file("ukan.pth", device)
+    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
+    # model = load_trained_UKAN_pth_file("ukan.pth", device)
     # test_model(model, device) 
-    plot_prediction(model, device, True)
+    # plot_prediction(model, device, True)
