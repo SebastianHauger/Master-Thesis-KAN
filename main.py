@@ -112,7 +112,7 @@ def load_trained_UKAN_pth_file(name, device):
 
 def plot_prediction(model, device, plot_fields):
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
-    test_loader = DataLoader(test, 1, shuffle=False) 
+    test_loader = DataLoader(test, 1, shuffle=True) 
     with torch.no_grad():
         batch = next(iter(test_loader))
         vrmse = VRMSE()
@@ -128,6 +128,9 @@ def plot_prediction(model, device, plot_fields):
         print(vrmse.eval(yp, y, test.metadata).mean())
         yp = rearrange(yp, "b f h w c -> b (f c) h w")
         y = rearrange(y,  "b f h w c -> b (f c) h w")
+        
+        print(f"diff inp tar {(x-y).square().mean()}")
+        print(f"diff tar pred {(y-yp).square().mean()}")
 
         x = x[0].detach().numpy()
         y = y[0].detach().numpy()
@@ -159,7 +162,7 @@ def plot_prediction(model, device, plot_fields):
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    # model = load_trained_UKAN_pth_file("ukan.pth", device)
+    # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
+    model = load_trained_UKAN_ptfile("best.pt", device)
     # test_model(model, device) 
-    # plot_prediction(model, device, True)
+    plot_prediction(model, device, True)
