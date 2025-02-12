@@ -54,6 +54,10 @@ class UKAN(nn.Module):
             drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer, padding=padding[6]
             )])
         
+        self.upsample2 = nn.ConvTranspose2d(embed_dims[0]//4, embed_dims[0]//4, 2, 2, padding=0)
+        self.upsample1 = nn.ConvTranspose2d(embed_dims[0]//8, embed_dims[0]//8, 2, 2, padding=0)
+        self.upsample3 = nn.ConvTranspose2d(embed_dims[0], embed_dims[0], 2, 2, padding=0)
+        
         # change num patches to be correct... also think about changing other free params...
         self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=2)
         self.patch_embed4 = ConvPatchEmbed(embed_dims[1], embed_dims[2], patch_s=2)
@@ -64,6 +68,8 @@ class UKAN(nn.Module):
         self.decoder3 = D_ConvLayer(embed_dims[2], embed_dims[0]//4, padding[7])  
         self.decoder2 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8, padding[8])  
         self.decoder1 = D_ConvLayer(embed_dims[0]//4, 3, padding[9])
+        
+        self.final = nn.Conv2d(3, 3, 1, 1) # last convolutional layer where we will process the output.
 
     def forward(self, x): 
         B = x.shape[0]
@@ -71,16 +77,19 @@ class UKAN(nn.Module):
         ### Conv Stage
         # print(f"Stage 1shape {x.shape} size = {x.shape[0]*x.shape[1]*x.shape[2]*x.shape[3]}")
         ### Stage 1
-        out = F.relu(F.max_pool2d(self.encoder1(x), 2, 2))
+        out = self.encoder1(x)
         t1 = out
+        out = F.max_pool2d(out, 2, 2)
         # print(f"Stage 2 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 2
-        out = F.relu(F.max_pool2d(self.encoder2(out), 2, 2))
+        out = self.encoder2(out)
         t2 = out
+        out = F.max_pool2d(out, 2, 2)
         # print(f"Stage 3 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
         ### Stage 3
-        out = F.relu(F.max_pool2d(self.encoder3(out), 2, 2))
+        out = self.encoder3(out)
         t3 = out
+        out = F.max_pool2d(out, 2, 2)
         # print(f"Stage 4 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
 
         ### Stage 4 - KAN encoder 
@@ -121,23 +130,27 @@ class UKAN(nn.Module):
         
         #Stage 3 -- decoder 
         out=self.inv_patch_embed3(out)
+        out=self.upsample3(out)
         out = torch.cat((out, t3), 1)
         # print(f"Stage 3 shape {out.shape}")
-        out = F.relu(F.interpolate(self.decoder3(out),scale_factor=(2,2),mode ='bilinear'))
+        out = self.decoder3(out)
         # print(f"Stage 3 out shape {out.shape}")
         
         # Stage 2 -- decoder 
+        out = self.upsample2(out)
+        # print(f"after upsample 1 {out.shape}")
         out = torch.cat((out,t2), 1)
         # print(f"Stage 2 dec shape {out.shape}")
-        out = F.relu(F.interpolate(self.decoder2(out),scale_factor=(2,2),mode ='bilinear'))
+        out = self.decoder2(out)
         # print(f"Stage 2 out shape {out.shape}")
         
         # Stage 1 -- decoder 
+        out = self.upsample1(out)
         out = torch.cat((out,t1), 1)
         # print(f"Stage 1 dec shape {out.shape}")
-        out = F.tanh(F.interpolate(self.decoder1(out),scale_factor=(2,2),mode ='bilinear'))
+        out = self.decoder1(out)
         # print(f"Stage 1 out shape {out.shape}")
-        
+        out = self.final(out) # final layer without relu activation that can make things negative
         # perhaps we should have a last convolutional layer since we have interpolated???
         
         # Final stage. Add input so output will model grad(f)

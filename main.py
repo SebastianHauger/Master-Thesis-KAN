@@ -1,6 +1,6 @@
 """root of the simulation. Run files from here."""
 from torch.utils.data import DataLoader
-from STD_UKAN import UKAN
+from new_UKAN_proposal import UKAN
 from tqdm import tqdm 
 from data import get_dataset
 from einops import rearrange
@@ -138,7 +138,7 @@ def plot_prediction(model, device, plot_fields):
         fig, axs = plt.subplots(3, 3) 
         for field in range(3):
             axs[field, 0].imshow(
-                np.abs(x[field] - y[field]), cmap="RdBu_r", interpolation="none")
+                np.abs(x[field] - y[field]), cmap="RdBu_r", interpolation="none", )
             axs[field, 1].imshow(np.abs(y[field]-yp[field]), cmap="RdBu_r", interpolation="none")
             axs[field, 2].imshow(np.abs(yp[field]-x[field]), cmap="RdBu_r", interpolation="none")
         axs[0, 0].set_title("Diff inp tar")
@@ -152,6 +152,7 @@ def plot_prediction(model, device, plot_fields):
                 axs[field, 0].imshow(x[field], cmap="RdBu_r", interpolation="none")
                 axs[field, 1].imshow(y[field], cmap="RdBu_r", interpolation="none")
                 axs[field, 2].imshow(yp[field], cmap="RdBu_r", interpolation="none")
+                axs
             axs[0, 0].set_title("Input")
             axs[0, 1].set_title("Target")
             axs[0, 2].set_title("Prediction")
