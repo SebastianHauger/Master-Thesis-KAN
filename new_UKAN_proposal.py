@@ -54,9 +54,11 @@ class UKAN(nn.Module):
             drop=drop_rate, drop_path=dpr[1], norm_layer=norm_layer, padding=padding[6]
             )])
         
+       
+        
+        self.upsample3 = nn.ConvTranspose2d(embed_dims[0], embed_dims[0], 2, 2, padding=0)
         self.upsample2 = nn.ConvTranspose2d(embed_dims[0]//4, embed_dims[0]//4, 2, 2, padding=0)
         self.upsample1 = nn.ConvTranspose2d(embed_dims[0]//8, embed_dims[0]//8, 2, 2, padding=0)
-        self.upsample3 = nn.ConvTranspose2d(embed_dims[0], embed_dims[0], 2, 2, padding=0)
         
         # change num patches to be correct... also think about changing other free params...
         self.patch_embed3 = ConvPatchEmbed(embed_dims[0], embed_dims[1], patch_s=2)
@@ -65,47 +67,41 @@ class UKAN(nn.Module):
         self.inv_patch_embed3 = InvPatchEmbed(2*embed_dims[1], embed_dims[0], patch_s=2)
         
         # match decoder names with input names to make more sense.
-        self.decoder3 = D_ConvLayer(embed_dims[2], embed_dims[0]//4, padding[7])  
+        self.decoder3 = D_ConvLayer(embed_dims[0]*2, embed_dims[0]//4, padding[7])  
         self.decoder2 = D_ConvLayer(embed_dims[0]//2, embed_dims[0]//8, padding[8])  
-        self.decoder1 = D_ConvLayer(embed_dims[0]//4, 3, padding[9])
+        self.decoder1 = D_ConvLayer(embed_dims[0]//4, embed_dims[0]//8, padding[9])
         
-        self.final = nn.Conv2d(3, 3, 1, 1) # last convolutional layer where we will process the output.
+        self.final = nn.Conv2d(embed_dims[0]//8, 3, 1, 1) # last convolutional layer where we will process the output.
 
     def forward(self, x): 
         B = x.shape[0]
         ### Encoder
-        ### Conv Stage
-        # print(f"Stage 1shape {x.shape} size = {x.shape[0]*x.shape[1]*x.shape[2]*x.shape[3]}")
+        
         ### Stage 1
         out = self.encoder1(x)
         t1 = out
         out = F.max_pool2d(out, 2, 2)
-        # print(f"Stage 2 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+        
         ### Stage 2
         out = self.encoder2(out)
         t2 = out
         out = F.max_pool2d(out, 2, 2)
-        # print(f"Stage 3 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
+    
         ### Stage 3
         out = self.encoder3(out)
         t3 = out
-        out = F.max_pool2d(out, 2, 2)
-        # print(f"Stage 4 shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")   
+        out = F.max_pool2d(out, 2, 2)  
 
         ### Stage 4 - KAN encoder 
         out, H, W = self.patch_embed3(out)
-        # print(f"Stage 4' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block1):
             out = blk(out, H, W)
         out = self.norm3(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         t4 = out
-        # print(f"Bottleneck shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]*out.shape[3]}")
 
-        
         ### Bottleneck
         out, H, W= self.patch_embed4(out)
-        # print(f"Bottleneck' shape {out.shape} size = {out.shape[0]*out.shape[1]*out.shape[2]}")
         for i, blk in enumerate(self.block2):
             out = blk(out, H, W)
         out = self.norm4(out)
@@ -114,46 +110,35 @@ class UKAN(nn.Module):
             out = blk(out, H, W)
         out = self.dnorm3(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous() # returns to original dimension
-        # here we need to reverse the bottom patch embedding in a meaningful way..
         out = self.inv_patch_embed4(out)
+        
         ### Stage 4-- Kan decoder 
-        # print(f"Stage 4 dec shape {out.shape}")
         out = torch.cat((out, t4), 1)
         _,_,H,W = out.shape
         out = out.flatten(2).transpose(1,2)
-        # print(f"Stage 4' shape {out.shape}")
+        
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
         out = self.dnorm4(out)
-        # print(f"after second decKAN shape {out.shape}")
-        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         
+        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         #Stage 3 -- decoder 
         out=self.inv_patch_embed3(out)
         out=self.upsample3(out)
         out = torch.cat((out, t3), 1)
-        # print(f"Stage 3 shape {out.shape}")
         out = self.decoder3(out)
-        # print(f"Stage 3 out shape {out.shape}")
         
         # Stage 2 -- decoder 
         out = self.upsample2(out)
-        # print(f"after upsample 1 {out.shape}")
         out = torch.cat((out,t2), 1)
-        # print(f"Stage 2 dec shape {out.shape}")
         out = self.decoder2(out)
-        # print(f"Stage 2 out shape {out.shape}")
         
         # Stage 1 -- decoder 
         out = self.upsample1(out)
         out = torch.cat((out,t1), 1)
-        # print(f"Stage 1 dec shape {out.shape}")
         out = self.decoder1(out)
-        # print(f"Stage 1 out shape {out.shape}")
-        out = self.final(out) # final layer without relu activation that can make things negative
-        # perhaps we should have a last convolutional layer since we have interpolated???
         
-        # Final stage. Add input so output will model grad(f)
+        # Final operations
+        out = self.final(out)
         out = torch.add(out, x)
-        # # print(f"shape {out.shape}") 
         return out

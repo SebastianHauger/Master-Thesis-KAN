@@ -47,7 +47,7 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
             optimizer.step()
             optimizer.zero_grad()
             bar.set_postfix(loss=mse.detach().item())
-            if i == 100:
+            if i == 30:
                 break
         # with torch.no_grad():
         #     avg_mse=0
@@ -100,7 +100,7 @@ def load_trained_UKAN_ptfile(name,device):
     return model
 
 def load_trained_UKAN_pth_file(name, device):
-    model = UKAN(padding="uniform")
+    model = UKAN(padding="asym_all")
     if device == "cpu":
         checkpoint = torch.load("Trained models/"+name, map_location=torch.device('cpu'))
     else:
@@ -129,18 +129,23 @@ def plot_prediction(model, device, plot_fields):
         yp = rearrange(yp, "b f h w c -> b (f c) h w")
         y = rearrange(y,  "b f h w c -> b (f c) h w")
         
-        print(f"diff inp tar {(x-y).square().mean()}")
-        print(f"diff tar pred {(y-yp).square().mean()}")
+        print(f"mse inp tar {(x-y).square().mean()}")
+        print(f"mse tar pred {(y-yp).square().mean()}")
 
         x = x[0].detach().numpy()
         y = y[0].detach().numpy()
         yp = yp[0].detach().numpy()
+        
+       
         fig, axs = plt.subplots(3, 3) 
         for field in range(3):
-            axs[field, 0].imshow(
-                np.abs(x[field] - y[field]), cmap="RdBu_r", interpolation="none", )
-            axs[field, 1].imshow(np.abs(y[field]-yp[field]), cmap="RdBu_r", interpolation="none")
-            axs[field, 2].imshow(np.abs(yp[field]-x[field]), cmap="RdBu_r", interpolation="none")
+            a = np.abs(x[field] - y[field])
+            b = np.abs(y[field]-yp[field])
+            c = np.abs(yp[field]-x[field])
+            gmax = max(a.max(), b.max(), c.max())
+            axs[field, 0].imshow(a, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
+            axs[field, 1].imshow(b, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
+            axs[field, 2].imshow(c, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
         axs[0, 0].set_title("Diff inp tar")
         axs[0, 1].set_title("Diff tar pred")
         axs[0, 2].set_title("diff pred inp")
@@ -165,5 +170,6 @@ if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
     model = load_trained_UKAN_ptfile("best.pt", device)
+    # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
     plot_prediction(model, device, True)
