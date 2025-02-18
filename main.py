@@ -137,18 +137,21 @@ def plot_prediction(model, device, plot_fields):
         yp = yp[0].detach().numpy()
         
        
-        fig, axs = plt.subplots(3, 3) 
+        fig, axs = plt.subplots(3, 3, figsize=(3 * 2.1, 3 * 1.2))
         for field in range(3):
             a = np.abs(x[field] - y[field])
             b = np.abs(y[field]-yp[field])
             c = np.abs(yp[field]-x[field])
+            diffs = [a, b, c]
             gmax = max(a.max(), b.max(), c.max())
-            axs[field, 0].imshow(a, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
-            axs[field, 1].imshow(b, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
-            axs[field, 2].imshow(c, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
-        axs[0, 0].set_title("Diff inp tar")
-        axs[0, 1].set_title("Diff tar pred")
-        axs[0, 2].set_title("diff pred inp")
+            for i in range(3):
+                axs[field, i].imshow(diffs[i], cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
+                axs[field, i].set_xticks([])
+                axs[field, i].set_yticks([])
+        axs[0, 0].set_title("|X-Y|")
+        axs[0, 1].set_title("|Y-Y'|")
+        axs[0, 2].set_title("|X-Y'|")
+        plt.tight_layout()
         plt.savefig("images/2epochs_train.pdf", bbox_inches='tight', dpi=200)
         plt.show()
         if plot_fields:
