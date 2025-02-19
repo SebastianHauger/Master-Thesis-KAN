@@ -14,11 +14,11 @@ class UKAN(nn.Module):
         or if we want to use it for all convolutional layers."""
         super().__init__()
         if padding == 'asym_1':
-            padding = ['custom'] + 11*[1] + ['custom']
+            padding = ['custom'] + 8*[1] + ['custom']
         elif padding == 'asym_all':
-            padding = ['custom'] * 13
+            padding = ['custom'] * 10
         elif padding == 'uniform':
-            padding = [1] * 13
+            padding = [1] * 10
         else: raise AttributeError("padding is not in ['uniform', 'asym_1', 'asym_all']")
             
         kan_input_dim = embed_dims[0]

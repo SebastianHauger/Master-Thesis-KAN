@@ -151,6 +151,9 @@ def plot_prediction(model, device, plot_fields):
         axs[0, 0].set_title("|X-Y|")
         axs[0, 1].set_title("|Y-Y'|")
         axs[0, 2].set_title("|X-Y'|")
+        axs[0, 0].set_ylabel("height")
+        axs[1, 0].set_ylabel("velocity theta")
+        axs[2, 0].set_ylabel("velocity phi")
         plt.tight_layout()
         plt.savefig("images/2epochs_train.pdf", bbox_inches='tight', dpi=200)
         plt.show()
@@ -164,6 +167,7 @@ def plot_prediction(model, device, plot_fields):
             axs[0, 0].set_title("Input")
             axs[0, 1].set_title("Target")
             axs[0, 2].set_title("Prediction")
+            axs
             plt.show()
             
             
@@ -171,8 +175,8 @@ def plot_prediction(model, device, plot_fields):
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("best.pt", device)
+    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
+    # model = load_trained_UKAN_ptfile("best.pt", device)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
     plot_prediction(model, device, True)
