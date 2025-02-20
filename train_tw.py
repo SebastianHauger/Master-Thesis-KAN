@@ -1,7 +1,7 @@
 from the_well.benchmark.trainer.training import Trainer
 from the_well.benchmark.metrics.spatial import VRMSE
 from torch.utils.data import DataLoader
-from STD_UKAN import UKAN
+from new_UKAN_proposal import UKAN
 from tqdm import tqdm 
 from data import get_datamodule
 from einops import rearrange
@@ -46,7 +46,8 @@ INFO = {
 def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter, 
                    checkpoint_frequency, val_frequency, rollout_val_frequency, 
                    max_rollout_steps, short_validation_length, num_time_intervals, 
-                   device, path_to_base, batch_size, checkpoint_path="", padding='uniform', epochs=1, normalize=True):
+                   device, path_to_base, batch_size, checkpoint_path="", 
+                   padding='uniform', epochs=1, normalize=True, max_lr=0.01, min_lr=0.0001):
     """
     This part of docstring simply copied from The Well documentation for Trainer class 
     Args:
@@ -92,8 +93,9 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                                 normalize=normalize)
     
     
-    optim = torch.optim.Adam(model.parameters(), lr=0.1)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optim, gamma=0.9)
+    optim = torch.optim.Adam(model.parameters(), lr=max_lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optim, T_max=int(epochs/2 + 0.1), eta_min=min_lr, last_epoch=-1)
+    # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optim, gamma=0.9)
     tr = Trainer(checkpoint_folder=checkpoint_folder,
                  artifact_folder=artifact_folder, 
                  viz_folder=viz_folder, 
@@ -141,11 +143,8 @@ if __name__=='__main__':
         padding=padding, 
         epochs=50,
         path_to_base=info["ptb"],
-        batch_size=72, 
+        batch_size=54, 
         normalize=True
         )
-    # note factors of 1008 include 36, 63 and 72 which all are relevant batch sizes. 
-    # note that we can not normalize when we are streaming from hf
-    # otherwise always normalize N
     
     
