@@ -110,7 +110,7 @@ def load_trained_UKAN_pth_file(name, device):
     return model
 
 
-def plot_prediction(model, device, plot_fields):
+def plot_prediction(model, device, plot_fields, epochs):
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
     test_loader = DataLoader(test, 1, shuffle=True) 
     with torch.no_grad():
@@ -155,7 +155,7 @@ def plot_prediction(model, device, plot_fields):
         axs[1, 0].set_ylabel("velocity theta")
         axs[2, 0].set_ylabel("velocity phi")
         plt.tight_layout()
-        plt.savefig("images/2epochs_train.pdf", bbox_inches='tight', dpi=200)
+        plt.savefig(f"images/{epochs}epochs_train.pdf", bbox_inches='tight', dpi=200)
         plt.show()
         if plot_fields:
             fig, axs = plt.subplots(3, 3) 
@@ -175,8 +175,8 @@ def plot_prediction(model, device, plot_fields):
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    # model = load_trained_UKAN_ptfile("best.pt", device)
+    # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
+    model = load_trained_UKAN_ptfile("checkpoint_25.pt", device)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    plot_prediction(model, device, True)
+    plot_prediction(model, device, True, epochs=25)

@@ -25,7 +25,8 @@ INFO = {
         "max_rollout_steps": 1, 
         "short_validation_length": 20, 
         "num_time_intervals": 1,
-        "ptb": "/mimer/NOBACKUP/groups/shallow_ukan/datasets" 
+        "ptb": "/mimer/NOBACKUP/groups/shallow_ukan/datasets",
+        "cpp": "TrainedModels/recent.pt"  # load the most recent model.
         }, 
     "home" : {
         "cpf": "TrainedModels", 
@@ -47,7 +48,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                    checkpoint_frequency, val_frequency, rollout_val_frequency, 
                    max_rollout_steps, short_validation_length, num_time_intervals, 
                    device, path_to_base, batch_size, checkpoint_path="", 
-                   padding='uniform', epochs=1, normalize=True, max_lr=0.01, min_lr=0.0001):
+                   padding='uniform', epochs=1, normalize=True, max_lr=0.001, min_lr=0.0001):
     """
     This part of docstring simply copied from The Well documentation for Trainer class 
     Args:
@@ -94,7 +95,8 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
     
     
     optim = torch.optim.Adam(model.parameters(), lr=max_lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optim, T_max=int(epochs/2 + 0.1), eta_min=min_lr, last_epoch=-1)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optim, T_max=int(epochs/2 + 0.1), eta_min=min_lr, last_epoch=-1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, 5, 0.2)
     # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optim, gamma=0.9)
     tr = Trainer(checkpoint_folder=checkpoint_folder,
                  artifact_folder=artifact_folder, 
@@ -116,6 +118,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  device = device, 
                  is_distributed=False, 
                  checkpoint_path=checkpoint_path
+                 
                  )
     tr.train()
     wandb.finish()
@@ -144,7 +147,8 @@ if __name__=='__main__':
         epochs=50,
         path_to_base=info["ptb"],
         batch_size=54, 
-        normalize=True
+        normalize=True,
+        checkpoint_path=info["cpp"] #remove this if one wishes to train from beginning
         )
     
     
