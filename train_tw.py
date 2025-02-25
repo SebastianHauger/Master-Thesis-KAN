@@ -42,7 +42,7 @@ INFO = {
         "ptb": "datasets"
         }
     }
-
+ 
 
 def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter, 
                    checkpoint_frequency, val_frequency, rollout_val_frequency, 
@@ -96,7 +96,7 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
     
     optim = torch.optim.Adam(model.parameters(), lr=max_lr)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optim, T_max=int(epochs/2 + 0.1), eta_min=min_lr, last_epoch=-1)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, 5, 0.2)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, 5, 0.1, last_epoch=50)
     # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optim, gamma=0.9)
     tr = Trainer(checkpoint_folder=checkpoint_folder,
                  artifact_folder=artifact_folder, 

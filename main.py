@@ -172,11 +172,53 @@ def plot_prediction(model, device, plot_fields, epochs):
             
             
 
+def plot_error_after_n_steps(model, n, device):
+    """"There seems to be an issue with the next step at the moment since x is not y of the 
+    previous step..."""
+    test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
+    test_loader = DataLoader(test, 1, shuffle=False) # We do not shuffle to be able to see the developement of error.
+    with torch.no_grad():
+        batch = next(iter(test_loader))
+        x = batch["input_fields"]
+        x = x.to(device)
+        x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+        for i in range(n):
+            x = model(x)
+            y = batch["output_fields"]
+            y = y.to(device)
+            y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+            batch = next(iter(test_loader))
+            xtr = batch["input_fields"]
+            xtr = xtr.to(device)
+            xtr = rearrange(xtr, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+            print(f"error out after {i+1} steps {(y-x).square().mean()}")
+            print(f"error after {i+1} steps: {(xtr-x).square().mean()}")
+        fig, axs = plt.subplots(1,3, figsize=(3 * 5, 2.5))
+        x = x[0].detach().numpy()
+        xtr = xtr[0].detach().numpy()
+        for field in range(3):
+            diff = np.abs(x[field] - xtr[field])
+            gmax = diff.max()
+            axs[field].imshow(diff, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
+            axs[field].set_xticks([])
+            axs[field].set_yticks([])
+        axs[0].set_title("height")
+        axs[1].set_title("velocity theta")
+        axs[2].set_title("velocity phi")
+        fig.suptitle("Difference pred, inp")
+        plt.tight_layout()
+        plt.savefig(f"images/ErrorAfter{n}Steps.pdf", bbox_inches='tight', dpi=200)
+        plt.show()
+    
+            
+            
+
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("checkpoint_25.pt", device)
+    model = load_trained_UKAN_ptfile("recent.pt", device)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    plot_prediction(model, device, True, epochs=25)
+    # plot_prediction(model, device, True, epochs=50)
+    plot_error_after_n_steps(model, 10, device)
