@@ -182,17 +182,31 @@ def plot_error_after_n_steps(model, n, device):
         x = batch["input_fields"]
         x = x.to(device)
         x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-        for i in range(n):
-            x = model(x)
-            y = batch["output_fields"]
-            y = y.to(device)
-            y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-            batch = next(iter(test_loader))
-            xtr = batch["input_fields"]
-            xtr = xtr.to(device)
-            xtr = rearrange(xtr, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-            print(f"error out after {i+1} steps {(y-x).square().mean()}")
-            print(f"error after {i+1} steps: {(xtr-x).square().mean()}")
+        y = batch["output_fields"]
+        y = y.to(device)
+        y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly") 
+        xtr = x
+        diffxpred = []
+        diffypred = []
+        mse_grad = []
+        for i, batch in enumerate(test_loader):
+            if i != 0:
+                x = model(x)
+                print(f"Diff x pred {(xtr-x).square().mean()}")
+                mse_grad.append((xtr-y).square().mean().detach().item())
+                diffxpred.append((xtr-x).square().mean().detach().item())
+                xtr = batch["input_fields"]
+                xtr = xtr.to(device)
+                xtr = rearrange(xtr, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+                diffypred.append((xtr-x).square().mean().detach().item())
+                print(f"diff should be zero {(y-xtr).square().mean()}")
+                print(f"error out after {i+1} steps {(y-x).square().mean()}")
+                print(f"error after {i+1} steps: {(xtr-x).square().mean()}")
+                y = batch["output_fields"]
+                y = y.to(device)
+                y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+            if i == n:
+                break
         fig, axs = plt.subplots(1,3, figsize=(3 * 5, 2.5))
         x = x[0].detach().numpy()
         xtr = xtr[0].detach().numpy()
@@ -205,9 +219,21 @@ def plot_error_after_n_steps(model, n, device):
         axs[0].set_title("height")
         axs[1].set_title("velocity theta")
         axs[2].set_title("velocity phi")
-        fig.suptitle("Difference pred, inp")
+        fig.suptitle(f"Difference pred, inp after {n} steps")
         plt.tight_layout()
         plt.savefig(f"images/ErrorAfter{n}Steps.pdf", bbox_inches='tight', dpi=200)
+        plt.show()
+        plt.figure()
+        xax = list(range(1, n+1))
+        plt.plot(xax,diffxpred, label="mse(x, yp)")
+        plt.plot(xax,diffypred, label="mse(y, yp)")
+        plt.plot(xax,mse_grad, label="mse(gradient)")
+        plt.ylabel("Error")
+        plt.xlabel("Iteration")
+        plt.title("Autoregressive error of predictor")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("images/EvolutionOfError.pdf", bbox_inches='tight', dpi=200)
         plt.show()
     
             
@@ -217,8 +243,8 @@ def plot_error_after_n_steps(model, n, device):
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("recent.pt", device)
+    model = load_trained_UKAN_ptfile("checkpoint_75.pt", device)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    # plot_prediction(model, device, True, epochs=50)
-    plot_error_after_n_steps(model, 10, device)
+    plot_prediction(model, device, True, epochs=75)
+    # plot_error_after_n_steps(model, 10, device)

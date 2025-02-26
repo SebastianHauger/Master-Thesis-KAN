@@ -58,7 +58,7 @@ def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True, 
     return dm 
 
 
-def plot_an_image_frame(ds, field_names, tt=1007):
+def plot_evolution(ds, field_names, tt=1007):
     F = ds.metadata.n_fields
     x = ds[1]["input_fields"]
     x = rearrange(x, "T Lx Ly F -> F T Lx Ly")
@@ -83,16 +83,4 @@ def plot_an_image_frame(ds, field_names, tt=1007):
     plt.savefig(f"images/evolution_1year.pdf",bbox_inches="tight", dpi=600)
     plt.show()
     
-
-
-if __name__=='__main__':
-    ds = get_dataset("test") 
-    # dsl = load_datafile(ds)
-    item = ds[1]
-    keyss = list(item.keys()) 
-    for key in keyss:
-        print(f"key: {key} shape: {item[key].shape}")
-    field_names = [name for group in ds.metadata.field_names.values() for name in group]
-    print (field_names)
-    print(len(ds))
-    plot_an_image_frame(ds, field_names)
+    
