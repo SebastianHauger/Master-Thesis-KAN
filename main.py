@@ -1,6 +1,7 @@
 """root of the simulation. Run files from here."""
 from torch.utils.data import DataLoader
 from new_UKAN_proposal import UKAN
+from the_well.benchmark.models.unet_classic import UNetClassic
 from tqdm import tqdm 
 from data import get_dataset
 from einops import rearrange
@@ -28,7 +29,8 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
     val = get_data_helper("valid", home)
     train_loader = DataLoader(train, batch_size=bs, shuffle=True)
     val_loader = DataLoader(val, batch_size=bs, shuffle=False)
-    model=UKAN(padding=padding)
+    # model=UKAN(padding=padding)
+    model = UNetClassic()
     model=model.to(device)
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
