@@ -17,41 +17,24 @@ from ODE_KAN import KAN
 #dx/dt=alpha*x-beta*x*y
 #dy/dt=delta*x*y-gamma*y
 
-tf=14
-tf_learn=3.5
-N_t_train=35
-N_t=int((35*tf/tf_learn))
-lr=2e-3
-num_epochs=10000
-plot_freq=100
-is_restart=False
 
 
-##coefficients from https://arxiv.org/pdf/2012.07244
-alpha=1.5
-beta=1
-gamma=3
-delta=1
+def gen_data(x0, y0, alpha, beta, delta, gamma):
+    def pred_prey_deriv(X, t, alpha, beta, delta, gamma):
+        x=X[0]
+        y=X[1]
+        dxdt = alpha*x-beta*x*y
+        dydt = delta*x*y-gamma*y
+        dXdt=[dxdt, dydt]
+        return dXdt
 
+    X0=np.array([x0, y0])
+    t=np.linspace(0, tf, N_t)
 
-x0=1 
-y0=1 
+    soln_arr=scipy.integrate.odeint(pred_prey_deriv, X0, t, args=(alpha, beta, delta, gamma))
+    return X0, t, soln_arr
 
-
-def pred_prey_deriv(X, t, alpha, beta, delta, gamma):
-    x=X[0]
-    y=X[1]
-    dxdt = alpha*x-beta*x*y
-    dydt = delta*x*y-gamma*y
-    dXdt=[dxdt, dydt]
-    return dXdt
-
-X0=np.array([x0, y0])
-t=np.linspace(0, tf, N_t)
-
-soln_arr=scipy.integrate.odeint(pred_prey_deriv, X0, t, args=(alpha, beta, delta, gamma))
-
-def plotter(pred, soln_arr, epoch, loss_train, loss_test):
+def plotter(pred, soln_arr, epoch, loss_train, loss_test, t):
     #callback plotter during training, plots current solution
     plt.figure()
     plt.plot(t, soln_arr[:, 0].detach(), color='g')
@@ -77,7 +60,7 @@ def plotter(pred, soln_arr, epoch, loss_train, loss_test):
     plt.close('all')
 
     
-def plotter_opt(pred, soln_arr, epoch, loss_train, loss_test):
+def plotter_opt(pred, soln_arr, epoch, loss_train, loss_test, t):
     #plots the optimal solution 
     plt.figure()
     plt.plot(t, soln_arr[:, 0].detach(), color='g')
@@ -96,7 +79,7 @@ def plotter_opt(pred, soln_arr, epoch, loss_train, loss_test):
     plt.close('all')
 
             
-if __name__=='__main__':      
+def train_and_eval(X0, t, tf, N_t_train, soln_arr, plot_freq, tf_learn, N_t, lr, is_restart):        
     # initialize KAN with grid=5
     model = KAN(layers_hidden=[2,10,2], grid_size=5) #k is order of piecewise polynomial
     #convery numpy training data to torch tensors: 
@@ -128,25 +111,23 @@ if __name__=='__main__':
 
     epoch_cutoff=10 #start at smaller lr to initialize, then bump it up
 
-    #p1=model.layers[0].spline_weight
-    #p2=model.layers[0].base_weight
-    #p3=model.layers[1].spline_weight
-    #p4=model.layers[1].base_weight
+    p1=model.layers[0].spline_weight
+    p2=model.layers[0].base_weight
+    p3=model.layers[1].spline_weight
+    p4=model.layers[1].base_weight
     for epoch in (bar := tqdm(range(num_epochs))):
         opt_plot_counter+=1
         #if epoch==epoch_cutoffs[2]:
         #    model = kan.KAN(width=[2,3,2], grid=grids[1], k=3).initialize_from_another_model(model, X0_train)
         optimizer.zero_grad()
 
-        #pred=torchodeint(calDeriv, X0, t_learn, adjoint_params=[p1, p2, p3, p4])
-        pred=torchodeint(calDeriv, X0, t_learn, adjoint_params=())
+        pred=torchodeint(calDeriv, X0, t_learn, adjoint_params=[p1, p2, p3, p4])
         loss_train=torch.mean(torch.square(pred[:, 0, :]-soln_arr_train))
         loss_train.retain_grad()
         loss_train.backward()
         optimizer.step()
         loss_list_train.append(loss_train.detach().cpu())
-        #pred_test=torchodeint(calDeriv, X0, t, adjoint_params=[])
-        pred_test=torchodeint(calDeriv, X0, t, adjoint_params=())
+        pred_test=torchodeint(calDeriv, X0, t, adjoint_params=[])
         loss_list_test.append(torch.mean(torch.square(pred_test[N_t_train:,0, :]-soln_arr[N_t_train:, :])).detach().cpu())
         #if epoch ==5:
         #    model.update_grid_from_samples(X0)
@@ -155,22 +136,48 @@ if __name__=='__main__':
             #model.save_ckpt('ckpt_predprey_opt')
             if opt_plot_counter>=200:
                 print('plotting optimal model')
-                plotter_opt( pred_test[:, 0, :], soln_arr, epoch, loss_list_train, loss_list_test)
+                plotter_opt( pred_test[:, 0, :], soln_arr, epoch, loss_list_train, loss_list_test, t)
                 opt_plot_counter=0
         
-        
-        
-
-        # print('Iter {:04d} | Train Loss {:.5f}'.format(epoch, loss_train.item()))
         bar.set_postfix(loss=loss_train.detach().item())
+        # print('Iter {:04d} | Train Loss {:.5f}'.format(epoch, loss_train.item()))
         ##########
         #########################make a checker that deepcopys the best loss into, like, model_optimal
         #########
         ######################and then save that one into the file, not just whatever the current one is
         if epoch % plot_freq ==0:
             #model.save_ckpt('ckpt_predprey')
-            plotter(pred_test[:, 0, :], soln_arr, epoch, loss_list_train, loss_list_test)
+            plotter(pred_test[:, 0, :], soln_arr, epoch, loss_list_train, loss_list_test, t)
 
     breakpoint()
+    
+
+
+if __name__=='__main__':
+    num_epochs=10000
+    plot_freq=100
+    tf=14
+    tf_learn=3.5
+    N_t_train=35
+    N_t=int((35*tf/tf_learn))
+    lr=2e-3
+    
+    is_restart=False
+    
+
+
+    ##coefficients from https://arxiv.org/pdf/2012.07244
+    alpha=1.5
+    beta=1
+    gamma=3
+    delta=1
+   
+
+
+    x0=1 
+    y0=1 
+    X0, t, soln_arr = gen_data(x0, y0, alpha, beta, delta, gamma)
+    
+    train_and_eval(X0, t, tf, N_t_train, soln_arr, plot_freq, tf_learn, N_t, lr, is_restart)
 
             
