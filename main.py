@@ -87,9 +87,13 @@ def test_model(model, device, bs=64, home=False):
         print(f"vrmse test set: {vrmse}")
             
             
-def load_trained_UKAN_ptfile(name,device):
+def load_trained_UKAN_ptfile(name,device, KAN):
     """assuming model has been trained with cuda."""
-    model = UKAN(padding="asym_all")
+    if KAN:
+        model = UKAN(padding="asym_all")
+    else:
+        dataset = get_dataset("train", PATH_TO_BASE_HOME, True)
+        model = UNetClassic(3, 3, dataset.metadata)
     if device == 'cpu':
         checkpoint = torch.load("Trained models/"+name, map_location=torch.device('cpu'), weights_only=False)
     else:
@@ -245,8 +249,8 @@ def plot_error_after_n_steps(model, n, device):
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("checkpoint_75.pt", device)
+    model = load_trained_UKAN_ptfile("best_unet.pt", device, KAN=False)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    plot_prediction(model, device, True, epochs=75)
+    plot_prediction(model, device, True, epochs="unetother")
     # plot_error_after_n_steps(model, 10, device)
