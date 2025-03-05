@@ -67,8 +67,61 @@ class Trainer:
         self.t=torch.Tensor(t)
         self.t_train =torch.tensor(np.linspace(0, tf_train, samples_train))
         self.cpp = checkpoint_path
-        
     
+    
+    def load_checkpoint(self, mp):
+        checkpoint = torch.load(mp, weights_only=False)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.min_loss = checkpoint["min_loss"]
+        self.loss_list_test = checkpoint["loss_list_test"]
+        self.loss_list_train = checkpoint["loss_list_train"]
+        self.start_epoch = checkpoint["start_epoch"]
+        
+
+    
+    def save_checkpoint(self,epoch, path):
+        torch.save(
+            {
+            "start_epoch": epoch+1, 
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "min_loss": self.min_loss,
+            "loss_list_test": self.loss_list_test,
+            "loss_list_train": self.loss_list_train
+            },
+            path,  
+        )
+        
+    def plotter(self, pred, epoch, optimal=False):
+    #callback plotter during training, plots current solution
+        plt.figure()
+        plt.plot(self.t, self.soln_arr[:, 0].detach(), color='g')
+        plt.plot(self.t, self.soln_arr[:, 1].detach(), color='b')
+        plt.plot(self.t, pred[:, 0].detach(), linestyle='dashed', color='g')
+        plt.plot(self.t, pred[:, 1].detach(), linestyle='dashed', color='b')
+
+        plt.legend(['x_data', 'y_data', 'x_KAN-ODE', 'y_KAN-ODE'])
+        plt.ylabel('concentration')
+        plt.xlabel('time')
+        plt.ylim([0, 8])
+        plt.vlines(self.tf_train, 0, 8)
+        if optimal:
+            plt.title(f"Current Optimal is {epoch} epochs")
+            plt.savefig("images/pred_prey/optimal_pred.png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+        else:
+            plt.savefig("images/pred_prey/training_updates/train_epoch_"+str(epoch) +".png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+            plt.close('all')
+            plt.figure()
+            plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
+            plt.semilogy(torch.Tensor(self.loss_list_test), label='test')
+            plt.legend()
+            plt.xlabel('epoch')
+            plt.ylabel('loss')
+            plt.savefig("images/pred_prey/loss.png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+        plt.close('all')
+        
+        
     def train(self, num_epochs=10000, val_freq=10):
         def calDeriv(t, X):
             dXdt=self.model(X)
@@ -100,9 +153,10 @@ class Trainer:
             #if epoch ==5:  # seems like they never update the grid....
             #    model.update_grid_from_samples(X0)
             if loss_train<self.loss_min:
-                self.loss_train
+                self.loss_min = loss_train
                 if opt_plot_counter>=200:
                     print('plotting optimal model')
+                    self.save_checkpoint(epoch, os.path.join(self.cpf, "best.pt"))
                     self.plotter(pred_test[:,0,:], epoch, True)
                     opt_plot_counter=0
             
@@ -117,50 +171,8 @@ class Trainer:
                 self.plotter(pred_test[:,0,:], epoch, False)
             
             if epoch % self.cp_freq == 0:
-                torch.save(self.model.state_dict, "Trained models/ODE.pt")
-        
-    
-                
-    
-    
-    def load_checkpoint(self, mp):
-        pass
-
-    
-    def save_checkpoint():
-        pass
-        
-        
-            
-    
-    
-    def plotter(self, pred, epoch, optimal=False):
-    #callback plotter during training, plots current solution
-        plt.figure()
-        plt.plot(self.t, self.soln_arr[:, 0].detach(), color='g')
-        plt.plot(self.t, self.soln_arr[:, 1].detach(), color='b')
-        plt.plot(self.t, pred[:, 0].detach(), linestyle='dashed', color='g')
-        plt.plot(self.t, pred[:, 1].detach(), linestyle='dashed', color='b')
-
-        plt.legend(['x_data', 'y_data', 'x_KAN-ODE', 'y_KAN-ODE'])
-        plt.ylabel('concentration')
-        plt.xlabel('time')
-        plt.ylim([0, 8])
-        plt.vlines(self.tf_train, 0, 8)
-        if optimal:
-            plt.title(f"Current Optimal is {epoch} epochs")
-            plt.savefig("images/pred_prey/optimal_pred.png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
-        else:
-            plt.savefig("images/pred_prey/training_updates/train_epoch_"+str(epoch) +".png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
-            plt.close('all')
-            plt.figure()
-            plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
-            plt.semilogy(torch.Tensor(self.loss_list_test), label='test')
-            plt.legend()
-            plt.xlabel('epoch')
-            plt.ylabel('loss')
-            plt.savefig("images/pred_prey/loss.png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
-        plt.close('all')
+                self.save_checkpoint(epoch, os.path.join(self.cpf, f"checkpoint_{epoch}.pt"))
+        self.save_checkpoint(epoch, os.path.join(self.cpf, "last.pt"))
         
 
 
