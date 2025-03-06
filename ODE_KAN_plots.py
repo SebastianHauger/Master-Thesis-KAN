@@ -56,6 +56,7 @@ class Trainer:
         self.loss_list_test=[]
         self.loss_min = 1e10
         self.start_epoch = 0
+        self.epoch_list_test = []
         if model_path != "":
             self.load_checkpoint(model_path)
     
@@ -77,6 +78,7 @@ class Trainer:
         self.loss_list_test = checkpoint["loss_list_test"]
         self.loss_list_train = checkpoint["loss_list_train"]
         self.start_epoch = checkpoint["start_epoch"]
+        self.epoch_list_test = checkpoint["epoch_list_test"]
         
 
     
@@ -88,7 +90,8 @@ class Trainer:
             "optimizer_state_dict": self.optimizer.state_dict(),
             "loss_min": self.loss_min,
             "loss_list_test": self.loss_list_test,
-            "loss_list_train": self.loss_list_train
+            "loss_list_train": self.loss_list_train,
+            "epoch_list_test": self.epoch_list_test
             },
             path,  
         )
@@ -114,7 +117,7 @@ class Trainer:
             plt.close('all')
             plt.figure()
             plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
-            plt.semilogy(torch.Tensor(self.loss_list_test), label='test')
+            plt.semilogy(self.epoch_list_test, torch.Tensor(self.loss_list_test), label='test')
             plt.legend()
             plt.xlabel('epoch')
             plt.ylabel('loss')
@@ -142,13 +145,14 @@ class Trainer:
             loss_train.backward()
             self.optimizer.step()
             self.loss_list_train.append(loss_train.detach().cpu())
-            if epoch % val_freq ==0:
+            if epoch % val_freq ==0 or epoch == self.start_epoch:  # always evaluate the first epoch to avoid crashing..
                 with torch.no_grad():
                     pred_test=torchodeint(calDeriv, self.init_cond, self.t, adjoint_params=[])
                     self.loss_list_test.append(torch.mean(torch.square(pred_test[self.samples_train:,0, :]-self.soln_arr[self.samples_train:, :])).detach().cpu())
+                    self.epoch_list_test.append(epoch)
             #if epoch ==5:  # seems like they never update the grid....
             #    model.update_grid_from_samples(X0)
-            if loss_train<self.loss_min and pred_test is not None:
+            if loss_train<self.loss_min:
                 self.loss_min = loss_train
                 if self.cp_freq + last <= epoch:
                     self.save_checkpoint(epoch, os.path.join(self.cpf, "best.pt"))
@@ -162,6 +166,7 @@ class Trainer:
             if epoch % self.cp_freq == 0:
                 self.save_checkpoint(epoch, os.path.join(self.cpf, f"checkpoint_{epoch}.pt"))
         self.save_checkpoint(epoch, os.path.join(self.cpf, "last.pt"))
+        self.plotter(pred_test[:,0,:], epoch, False)
         
 
 
@@ -180,9 +185,9 @@ if __name__=='__main__':
     X0 = np.array([1,1])
     soln_array, t = gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t)
     trainer = Trainer(X0, soln_array, tf=tf, tf_train=tf_train,
-                      samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=10, plot_F=5,
-                      model_path="TrainedModels/ODEKans/checkpoint_10.pt", checkpoint_folder="TrainedModels/ODEKans")
-    trainer.train(num_epochs=20, val_freq=5)
+                      samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=20, plot_F=20,
+                      model_path="TrainedModels/ODEKans/checkpoint_80.pt", checkpoint_folder="TrainedModels/ODEKans")
+    trainer.train(num_epochs=100, val_freq=5)
     
         
             
