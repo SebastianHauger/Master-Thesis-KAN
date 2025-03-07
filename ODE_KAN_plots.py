@@ -185,9 +185,9 @@ if __name__=='__main__':
     X0 = np.array([1,1])
     soln_array, t = gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t)
     trainer = Trainer(X0, soln_array, tf=tf, tf_train=tf_train,
-                      samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=20, plot_F=20,
-                      model_path="TrainedModels/ODEKans/checkpoint_80.pt", checkpoint_folder="TrainedModels/ODEKans")
-    trainer.train(num_epochs=100, val_freq=5)
+                      samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=200, plot_F=200,
+                      model_path="TrainedModels/ODEKans/last.pt", checkpoint_folder="TrainedModels/ODEKans")
+    trainer.train(num_epochs=2000, val_freq=10)
     
         
             
