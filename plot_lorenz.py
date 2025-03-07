@@ -34,13 +34,13 @@ plot_samps = True
 plot_baseline = True
 
 # create directory
-savedir = 'results_figures'
+savedir = 'images/Lorenz'
 if not os.path.exists(savedir):
     os.makedirs(savedir)
 
 # directories where results are saved
-da_dir = "results_dafi"
-lorenz_dir = "results_lorenz"
+da_dir = "Results/results_dafi"
+lorenz_dir = "Results/results_lorenz"
 
 # enable LaTex
 plt.rc('text', usetex=True)

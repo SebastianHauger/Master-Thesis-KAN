@@ -91,7 +91,7 @@ class Model(PhysicsModel):
         self.obs_abs_std = [x_obs_abs_std, z_obs_abs_std]
 
         # create save directory
-        self.dir = 'results_lorenz'
+        self.dir = 'Results/results_lorenz'
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
