@@ -11,6 +11,7 @@ test_file.py
 # trained model dicts
 *.pth
 *.pt 
+*.in
 
 # protect information about allocation
 *.sh   
