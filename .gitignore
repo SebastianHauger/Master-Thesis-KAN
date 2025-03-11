@@ -13,6 +13,9 @@ test_file.py
 *.pt 
 *.in
 
+# ignore all files from the results folder
+Results/results_lorenz/states/*
+
 # protect information about allocation
 *.sh   
 

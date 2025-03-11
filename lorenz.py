@@ -6,6 +6,7 @@ from scipy.integrate import ode
 import yaml
 from dafi import PhysicsModel
 import matplotlib.pyplot as plt
+import dafi
 
 
 NSTATE = 3
@@ -41,7 +42,7 @@ class Model(PhysicsModel):
     def __init__(self, inputs_dafi, inputs):
         super().__init__(inputs_dafi, inputs)
         self.n_samples = inputs_dafi['nsamples']
-        tend = inputs_dafi['time']
+        tend = inputs_dafi['ntime']
         
         if inputs_dafi['convergence_option'] != 'max':
             inputs_dafi['convergence_option'] = 'max'
@@ -49,7 +50,7 @@ class Model(PhysicsModel):
             inputs_dafi['max_iterations'] = 1
         
         # read input file
-        input_file = inputs_model['input_file']
+        input_file = inputs["input_file"]
         with open(input_file, 'r') as f:
             inputs_model = yaml.load(f, yaml.SafeLoader)
 
@@ -121,8 +122,8 @@ class Model(PhysicsModel):
             Ensemble matrix of states in observation space (HX).
             *dtype=float*, *ndim=2*, *shape=(nstate_obs, nsamples)*
         """
-        state_vec = np.empty([NSTATEAUG, self.nsamples])
-        for isamp in range(self.nsamples):
+        state_vec = np.empty([NSTATEAUG, self.n_samples])
+        for isamp in range(self.n_samples):
             state_vec[:, isamp] = self.init_state \
                 + np.random.normal(0, self.init_std)
         model_obs = self.state_to_observation(state_vec)
@@ -149,11 +150,11 @@ class Model(PhysicsModel):
         start_time = end_ptime - self.da * self.dt
         time_series = np.arange(start_time, end_ptime + self.dt/2.0, self.dt)
         # initialize variables
-        state_vec_forecast = np.empty([NSTATEAUG, self.nsamples])
+        state_vec_forecast = np.empty([NSTATEAUG, self.n_samples])
         savedir = os.path.join(self.dir, 'states')
         if not os.path.exists(savedir):
             os.makedirs(savedir)
-        for isamp in range(self.nsamples):
+        for isamp in range(self.n_samples):
             # solve
             parameters = [state_vec_current[3, isamp], self.beta, self.sigma]
             init_orgstate = state_vec_current[:3, isamp]
@@ -243,10 +244,3 @@ class Model(PhysicsModel):
                    [self.beta, self.sigma])
         return obs
         
-
-
-
-
-
-
-    

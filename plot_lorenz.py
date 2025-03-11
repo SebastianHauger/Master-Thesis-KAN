@@ -196,3 +196,4 @@ fig1.savefig(savedir + os.sep + 'plot_state.pdf')
 fig2.savefig(savedir + os.sep + 'plot_rho.pdf')
 
 plt.close('all')
+
