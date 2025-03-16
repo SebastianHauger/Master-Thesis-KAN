@@ -37,7 +37,6 @@ def lorenz(time_series, init_state, params):
         state = np.vstack((state, solver.y))
     return state 
 
-
 class Model(PhysicsModel):
     def __init__(self, inputs_dafi, inputs):
         super().__init__(inputs_dafi, inputs)
@@ -243,4 +242,5 @@ class Model(PhysicsModel):
         np.savetxt(os.path.join(self.dir, 'params.dat'),
                    [self.beta, self.sigma])
         return obs
+    
         

@@ -14,7 +14,7 @@ import yaml
 # local import
 from lorenz import NSTATE, OBSERVE_STATE
 
-
+print("Fetching data")
 # read input file
 input_file = 'dafi.in'
 with open(input_file, 'r') as f:
@@ -28,10 +28,10 @@ lorenz = getattr(model_module, 'lorenz')
 
 # what to plot
 plot_truth = True
-plot_obs = True
-plot_sampmean = True
-plot_samps = True
-plot_baseline = True
+plot_obs = False
+plot_sampmean = False
+plot_samps = False
+plot_baseline = False
 
 # create directory
 savedir = 'images/Lorenz'
@@ -41,6 +41,7 @@ if not os.path.exists(savedir):
 # directories where results are saved
 da_dir = "Results/results_dafi"
 lorenz_dir = "Results/results_lorenz"
+
 
 # enable LaTex
 plt.rc('text', usetex=True)
@@ -92,7 +93,12 @@ if plot_samps or plot_sampmean:
 if plot_baseline:
     t_base = truth[:, 0]
     params = np.loadtxt(lorenz_dir + os.sep + 'params.dat')
-    Xbase = lorenz(t_base, X0m[:3], [X0m[3:], params[0], params[1]])
+    # print (t_base, X0m[3:], 3*[params[0]], 3*[params[1]])
+    # print(X0m)
+    # raise RuntimeError("stop here")
+    
+    
+    Xbase = lorenz(t_base, X0m[:3], [X0m[3],  params[0], params[1]])
 
 # get rho
 if plot_samps or plot_sampmean:
@@ -106,7 +112,7 @@ if plot_samps or plot_sampmean:
     Rho_allm = np.mean(Rho_all, axis=1)
     t_rho_mat = np.tile(time_rho, (nsamples, 1)).T
 rho_true = np.loadtxt(lorenz_dir + os.sep + 'rho.dat')
-
+print("Plotting states")
 # plot states
 fig1, axarr1 = plt.subplots(NSTATE, 1, sharex=True)
 state_ind = 0
@@ -125,7 +131,7 @@ for istate, ax in enumerate(axarr1):
             lines1.append(plot[0])
     if plot_truth:
         plot = ax.plot(truth[:, 0], truth[:, istate+1], 'k-',
-                       alpha=1.0, lw=2.5, label='Truth')
+                       alpha=1.0, lw=0.7, label='Truth')
         if istate == 0:
             lines1.append(plot[0])
     if plot_baseline:
@@ -147,6 +153,7 @@ for istate, ax in enumerate(axarr1):
             lines1.append(plot[0])
         state_ind += 1
 
+print("Plotting rho")
 # Plot rho
 lines2 = []
 istate = 3
@@ -165,7 +172,7 @@ if plot_baseline:
     lines2.append(plot[0])
 if plot_truth:
     plot = ax2.plot([0.0, da_time[-1]], [rho_true, rho_true], 'k-', alpha=1.0,
-                    lw=2.5, label='Truth')
+                    lw=0.7, label='Truth')
     lines2.append(plot[0])
     pass
 if plot_sampmean:
@@ -196,4 +203,19 @@ fig1.savefig(savedir + os.sep + 'plot_state.pdf')
 fig2.savefig(savedir + os.sep + 'plot_rho.pdf')
 
 plt.close('all')
+
+
+# Maybe this is all we need. 
+print("Plotting trajectory")
+fig, ax = plt.subplots(1, 1, subplot_kw={"projection":'3d'})
+ax.plot(truth[:, 1], truth[:, 2], truth[:, 3], color="black", linewidth=0.5)
+ax.set_title("State trajectory")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
+ax.set_proj_type("persp")
+fig.savefig(savedir + os.sep + 'trajectory_plot.pdf')
+# plt.show()
+plt.close('all')
+
 

@@ -34,8 +34,13 @@ def gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t):
     return soln_arr, t
 
 
-def gen_data_lorenz63():
-    pass
+def get_data_lorenz63():
+    states = np.loadtxt("Results/results_lorenz/truth.dat")
+    t = states[:, 0]
+    soln_arr = states[:, 0:]
+    print(soln_arr.shape)
+    return soln_arr, t
+    
 
 
 class Trainer:
@@ -171,23 +176,26 @@ class Trainer:
 
 
 if __name__=='__main__':
-    tf=14
-    tf_train=3.5
-    N_t_train=35
-    N_t=int((35*tf/tf_train))
-    lr=2e-3
-    num_epochs=10000
-    plot_freq=100
-    alpha=1.5
-    beta=1
-    gamma=3
-    delta=1
-    X0 = np.array([1,1])
-    soln_array, t = gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t)
-    trainer = Trainer(X0, soln_array, tf=tf, tf_train=tf_train,
-                      samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=200, plot_F=200,
-                      model_path="TrainedModels/ODEKans/last.pt", checkpoint_folder="TrainedModels/ODEKans")
-    trainer.train(num_epochs=2000, val_freq=10)
+    # tf=14
+    # tf_train=3.5
+    # N_t_train=35
+    # N_t=int((35*tf/tf_train))
+    # lr=2e-3
+    # num_epochs=10000
+    # plot_freq=100
+    # alpha=1.5
+    # beta=1
+    # gamma=3
+    # delta=1
+    # X0 = np.array([1,1])
+    # soln_array, t = gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t)
+    # trainer = Trainer(X0, soln_array, tf=tf, tf_train=tf_train,
+    #                   samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=200, plot_F=200,
+    #                   model_path="TrainedModels/ODEKans/last.pt", checkpoint_folder="TrainedModels/ODEKans")
+    # trainer.train(num_epochs=2000, val_freq=10)
+    
+    soln_array, t = get_data_lorenz63()
+    
     
         
             
