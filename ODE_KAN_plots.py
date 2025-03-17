@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 from torchdiffeq import odeint_adjoint as torchodeint
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 import gc
@@ -31,31 +32,31 @@ def gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t):
     t=np.linspace(0, tf, N_t)
 
     soln_arr=scipy.integrate.odeint(pred_prey_deriv, X0, t, args=(alpha, beta, delta, gamma))
+    print(soln_arr.shape)
     return soln_arr, t
 
 
 def get_data_lorenz63():
     states = np.loadtxt("Results/results_lorenz/truth.dat")
     t = states[:, 0]
-    soln_arr = states[:, 0:]
-    print(soln_arr.shape)
+    soln_arr = states[:, 1:]
+    print(soln_arr.shape, states.shape)
     return soln_arr, t
     
 
 
 class Trainer:
-    def __init__(self, init_cond=np.array([1,1]), data=None, plot_F=100, tf=14, tf_train=3.5, samples_train=35,
-                 lr = 2e-3, t=None, model_path="", checkpoint_folder="", checkpoint_freq=100):
+    def __init__(self, n_dims, n_hidden=10, grid_size=5, init_cond=np.array([1,1]), data=None, plot_F=100, tf=14, tf_train=3.5, samples_train=35,
+                 lr = 2e-3, t=None, model_path="", checkpoint_folder="", checkpoint_freq=100, image_folder=""):
         self.plot_freq = plot_F
         self.cp_freq = checkpoint_freq
         self.tf = tf  # time frame to be used (from zero to this time) 
         self.tf_train = tf_train  # time frame to be used for training (the first part)
-        self.samples_train = samples_train  # decides the frequency of samples 
-        self.samples = int((samples_train*tf/tf_train))
-        self.lr = lr
-        self.x0 = init_cond[0]
-        self.y0 = init_cond[1]        
-        self.model = KAN(layers_hidden=[2,10,2], grid_size=5) #k is order of piecewise polynomial
+        self.samples = data.shape[1]
+        self.samples_train = int(tf_train*self.samples/tf)
+        
+        self.lr = lr     
+        self.model = KAN(layers_hidden=[n_dims,n_hidden,n_dims], grid_size=grid_size) #k is order of piecewise polynomial
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.loss_list_train=[]
         self.loss_list_test=[]
@@ -73,7 +74,8 @@ class Trainer:
         self.t=torch.tensor(t)
         self.t_train =torch.tensor(np.linspace(0, tf_train, samples_train))
         self.cpf = checkpoint_folder
-    
+        self.im_f = image_folder
+        plt.rc('text', usetex=True)  # use latex for prettier plots
     
     def load_checkpoint(self, mp):
         checkpoint = torch.load(mp, weights_only=False)
@@ -84,9 +86,7 @@ class Trainer:
         self.loss_list_train = checkpoint["loss_list_train"]
         self.start_epoch = checkpoint["start_epoch"]
         self.epoch_list_test = checkpoint["epoch_list_test"]
-        
-
-    
+         
     def save_checkpoint(self,epoch, path):
         torch.save(
             {
@@ -103,22 +103,21 @@ class Trainer:
         
     def plotter(self, pred, epoch, optimal=False):
     #callback plotter during training, plots current solution
-        plt.figure()
-        plt.plot(self.t, self.soln_arr[:, 0].detach(), color='g')
-        plt.plot(self.t, self.soln_arr[:, 1].detach(), color='b')
-        plt.plot(self.t, pred[:, 0].detach(), linestyle='dashed', color='g')
-        plt.plot(self.t, pred[:, 1].detach(), linestyle='dashed', color='b')
-
-        plt.legend(['x_data', 'y_data', 'x_KAN-ODE', 'y_KAN-ODE'])
-        plt.ylabel('concentration')
-        plt.xlabel('time')
-        plt.ylim([0, 8])
-        plt.vlines(self.tf_train, 0, 8)
+        fig, axarr = plt.subplots(self.soln_arr.shape[1], 1, sharex=True)
+        labels=["x", "y", "z"]    # maximum three labels
+        for i,ax in enumerate(axarr):
+            ax.plot(self.t, self.soln_arr[:, i].detach(), color='black', label="Truth")
+            ax.plot(self.t, pred[:, i].detach(), linestyle="dashed", color="red", label="Prediction")
+            ax.set_ylabel(labels[i])
+            ax.axvline(self.tf_train)
+        
+        ax.set_xlabel("time [s]")
+        fig.legend(loc="center right")
         if optimal:
-            plt.title(f"Current Optimal is {epoch} epochs")
-            plt.savefig("images/pred_prey/optimal_pred.png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+            fig.suptitle(f"Current Optimal is {epoch} epochs")
+            fig.savefig(os.path.join(self.im_f, "optimal_pred.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
         else:
-            plt.savefig("images/pred_prey/training_updates/train_epoch_"+str(epoch) +".png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+            fig.savefig(os.path.join(self.im_f, "training_updates/train_epoch_"+str(epoch)+".pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
             plt.close('all')
             plt.figure()
             plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
@@ -126,29 +125,33 @@ class Trainer:
             plt.legend()
             plt.xlabel('epoch')
             plt.ylabel('loss')
-            plt.savefig("images/pred_prey/loss.png", dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+            plt.savefig(os.path.join(self.im_f, "loss.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
         plt.close('all')
         
-        
-    def train(self, num_epochs=10000, val_freq=10):
+    def train(self, num_epochs=10000, val_freq=10, batch_size=100):
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
         last = -1
         pred_test=None
-
         p1 = self.model.layers[0].spline_weight
         p2 = self.model.layers[0].base_weight
         p3 = self.model.layers[1].spline_weight
         p4 = self.model.layers[1].base_weight
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
-            self.optimizer.zero_grad()
-
-            pred=torchodeint(calDeriv, self.init_cond, self.t_train, adjoint_params=[p1, p2, p3, p4])
-            loss_train=torch.mean(torch.square(pred[:, 0, :]-self.soln_arr_train))
-            loss_train.retain_grad()
-            loss_train.backward()
-            self.optimizer.step()
+            for i_start in range(0, self.samples_train, batch_size):
+                self.optimizer.zero_grad()
+                init_cond = self.soln_arr[i_start, :].unsqueeze(0)
+                print(init_cond.type())
+                print(self.init_cond.type())
+                print(self.init_cond.shape)
+                print(init_cond.shape)
+                batch = self.t[i_start:i_start+batch_size]
+                pred=torchodeint(calDeriv, init_cond, batch, adjoint_params=[p1, p2, p3, p4])
+                loss_train=torch.mean(torch.square(pred[:, 0, :]-self.soln_arr_train))
+                loss_train.retain_grad()
+                loss_train.backward()
+                self.optimizer.step()
             self.loss_list_train.append(loss_train.detach().cpu())
             if epoch % val_freq ==0 or epoch == self.start_epoch:  # always evaluate the first epoch to avoid crashing..
                 with torch.no_grad():
@@ -195,6 +198,15 @@ if __name__=='__main__':
     # trainer.train(num_epochs=2000, val_freq=10)
     
     soln_array, t = get_data_lorenz63()
+    init_cond = soln_array[0, :]
+    
+    trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
+                      data=soln_array, t=t, plot_F=10, model_path="",
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+                      tf=100, tf_train=40, lr=0.1, 
+                      image_folder="images/Lorenz")
+    trainer.train(num_epochs=100, val_freq=2)
+    
     
     
         
