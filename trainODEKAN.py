@@ -46,14 +46,15 @@ def get_data_lorenz63():
 
 
 class Trainer:
-    def __init__(self, n_dims, n_hidden=10, grid_size=5, init_cond=np.array([1,1]), data=None, plot_F=100, tf=14, tf_train=3.5, samples_train=35,
+    def __init__(self, n_dims, n_hidden=10, grid_size=5, init_cond=np.array([1,1]), data=None, plot_F=100, tf=14, tf_train=3.5,
                  lr = 2e-3, t=None, model_path="", checkpoint_folder="", checkpoint_freq=100, image_folder=""):
         self.plot_freq = plot_F
         self.cp_freq = checkpoint_freq
         self.tf = tf  # time frame to be used (from zero to this time) 
         self.tf_train = tf_train  # time frame to be used for training (the first part)
-        self.samples = data.shape[1]
+        self.samples = data.shape[0]
         self.samples_train = int(tf_train*self.samples/tf)
+        print(self.samples_train, print)
         
         self.lr = lr     
         self.model = KAN(layers_hidden=[n_dims,n_hidden,n_dims], grid_size=grid_size) #k is order of piecewise polynomial
@@ -70,9 +71,10 @@ class Trainer:
         self.init_cond.requires_grad=True
         self.soln_arr=torch.tensor(data)
         self.soln_arr.requires_grad=True
-        self.soln_arr_train=self.soln_arr[:samples_train, :]
+        self.soln_arr_train=self.soln_arr[:self.samples_train, :]
         self.t=torch.tensor(t)
-        self.t_train =torch.tensor(np.linspace(0, tf_train, samples_train))
+        self.t_train =torch.tensor(np.linspace(0, tf_train, self.samples_train))
+        print(self.t_train.shape)
         self.cpf = checkpoint_folder
         self.im_f = image_folder
         plt.rc('text', usetex=True)  # use latex for prettier plots
@@ -128,7 +130,7 @@ class Trainer:
             plt.savefig(os.path.join(self.im_f, "loss.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
         plt.close('all')
         
-    def train(self, num_epochs=10000, val_freq=10, batch_size=100):
+    def train(self, num_epochs=10000, val_freq=10, batch_size=16, run_length=100):
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
@@ -138,17 +140,23 @@ class Trainer:
         p2 = self.model.layers[0].base_weight
         p3 = self.model.layers[1].spline_weight
         p4 = self.model.layers[1].base_weight
+        starts = np.arange(0, self.samples_train, batch_size)
+        
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
-            for i_start in range(0, self.samples_train, batch_size):
-                self.optimizer.zero_grad()
-                init_cond = self.soln_arr[i_start, :].unsqueeze(0)
-                print(init_cond.type())
-                print(self.init_cond.type())
-                print(self.init_cond.shape)
-                print(init_cond.shape)
-                batch = self.t[i_start:i_start+batch_size]
+            starts = np.random.permutation(starts)
+            for i_start in starts:
+                i_end = min(i_start + batch_size, self.samples_train)
+                init_cond = self.soln_arr[i_start, :].unsqueeze(0).float()
+                # print(init_cond.type())
+                # print(self.init_cond.type())
+                # print(self.init_cond.shape)
+                # print(init_cond.shape)
+                batch = self.t[i_start:i_end]
                 pred=torchodeint(calDeriv, init_cond, batch, adjoint_params=[p1, p2, p3, p4])
-                loss_train=torch.mean(torch.square(pred[:, 0, :]-self.soln_arr_train))
+                # print(pred[:,0,:].shape)
+                # print(self.soln_arr_train[i_start:i_start+batch_size, :].shape)
+                loss_train=torch.mean(torch.square(pred[:, 0, :]-self.soln_arr_train[i_start:i_end, :]))
+                # print(loss_train)
                 loss_train.retain_grad()
                 loss_train.backward()
                 self.optimizer.step()
@@ -201,11 +209,11 @@ if __name__=='__main__':
     init_cond = soln_array[0, :]
     
     trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=10, model_path="",
+                      data=soln_array, t=t, plot_F=1, model_path="",
                       checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-                      tf=100, tf_train=40, lr=0.1, 
+                      tf=100, tf_train=40, lr=0.01, 
                       image_folder="images/Lorenz")
-    trainer.train(num_epochs=100, val_freq=2)
+    trainer.train(num_epochs=100, val_freq=1, batch_size=3980)
     
     
     
