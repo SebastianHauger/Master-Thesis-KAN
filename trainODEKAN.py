@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 from torchdiffeq import odeint_adjoint as torchodeint
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import os
 import gc
@@ -42,6 +42,21 @@ def get_data_lorenz63():
     soln_arr = states[:, 1:]
     print(soln_arr.shape, states.shape)
     return soln_arr, t
+
+
+class ODEDataset(Dataset):
+    def __init__(self, data, times, batch_length):
+        self.data = data
+        self.times = times
+        self.batch_length = batch_length
+        self.start_index = np.arange(0, len(data), batch_length)
+    
+    def __len__(self):
+        return len(self.start_indexes)
+    
+    def __getitem(self, idx):
+        start
+    
     
 
 
@@ -129,8 +144,22 @@ class Trainer:
             plt.ylabel('loss')
             plt.savefig(os.path.join(self.im_f, "loss.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
         plt.close('all')
+      
+    def _batchify_data(self, batch_size, batch_length):
+        start_indexes = np.arange(0, self.samples_train, batch_length)
+        init_conds = self.soln_arr[start_indexes,:]
+        batch_times = [self.t_train[start_index:min(start_index+batch_length, self.samples_train)] for start_index in start_indexes]
+        batches = []
+        for i in range(0, len(start_indexes), batch_size):
+            batch_init_conds = init_conds[i:min(i+batch_size, start_indexes.size)]
+            batch_tint = batch_times[i:min(i+batch_size, start_indexes.size)]
+            batches.append((batch_init_conds, batch_tint))
+        solutions = [self.soln_arr_train[start_index:min(start_index+batch_length, self.samples_train)] for start_index in start_indexes]
+        return batches, solutions    
         
-    def train(self, num_epochs=10000, val_freq=10, batch_size=16, run_length=100):
+        
+           
+    def train(self, num_epochs=10000, val_freq=10, batch_size=16, batch_length=100 ):
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
@@ -140,22 +169,14 @@ class Trainer:
         p2 = self.model.layers[0].base_weight
         p3 = self.model.layers[1].spline_weight
         p4 = self.model.layers[1].base_weight
-        starts = np.arange(0, self.samples_train, batch_size)
+        batches, solutions = self._batchify_data(batch_size, batch_length)
         
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
-            starts = np.random.permutation(starts)
-            for i_start in starts:
-                i_end = min(i_start + batch_size, self.samples_train)
-                init_cond = self.soln_arr[i_start, :].unsqueeze(0).float()
-                # print(init_cond.type())
-                # print(self.init_cond.type())
-                # print(self.init_cond.shape)
-                # print(init_cond.shape)
-                batch = self.t[i_start:i_end]
-                pred=torchodeint(calDeriv, init_cond, batch, adjoint_params=[p1, p2, p3, p4])
+            for batch, targ in zip(batches, solutions):
+                pred=torchodeint(calDeriv, batch[0], batch[1], adjoint_params=[p1, p2, p3, p4])
                 # print(pred[:,0,:].shape)
                 # print(self.soln_arr_train[i_start:i_start+batch_size, :].shape)
-                loss_train=torch.mean(torch.square(pred[:, 0, :]-self.soln_arr_train[i_start:i_end, :]))
+                loss_train=torch.mean(torch.square(pred[:, 0, :]-targ))
                 # print(loss_train)
                 loss_train.retain_grad()
                 loss_train.backward()
