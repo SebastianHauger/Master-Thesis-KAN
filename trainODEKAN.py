@@ -40,22 +40,29 @@ def get_data_lorenz63():
     states = np.loadtxt("Results/results_lorenz/truth.dat")
     t = states[:, 0]
     soln_arr = states[:, 1:]
-    print(soln_arr.shape, states.shape)
     return soln_arr, t
 
 
 class ODEDataset(Dataset):
     def __init__(self, data, times, batch_length):
         self.data = data
-        self.times = times
+        # self.times = times
         self.batch_length = batch_length
-        self.start_index = np.arange(0, len(data), batch_length)
+        self.start_indexes = np.arange(0, len(data), batch_length)
     
     def __len__(self):
         return len(self.start_indexes)
     
-    def __getitem(self, idx):
-        start
+    def __getitem__(self, idx):
+        start_index = self.start_indexes[idx]
+        end_index = min(start_index + self.batch_length, len(self.data))
+        init_cond = self.data[start_index]
+        # time_interval = self.times[start_index:end_index]
+        solution = self.data[start_index:end_index]
+        if start_index - end_index < self.batch_length:
+            # time_interval = torch.cat((time_interval, time_interval.new_full((self.batch_length - len(time_interval),), time_interval[-1].item())))
+            solution = torch.cat((solution, solution.new_full((self.batch_length - len(solution), solution.shape[1]), solution[-1, 0].unsqueeze(0).item())))
+        return init_cond, solution 
     
     
 
@@ -69,7 +76,11 @@ class Trainer:
         self.tf_train = tf_train  # time frame to be used for training (the first part)
         self.samples = data.shape[0]
         self.samples_train = int(tf_train*self.samples/tf)
-        print(self.samples_train, print)
+        
+        
+        self.plot_lims = [(data[:, i].min(), data[:, i].max()) for i in range(data.shape[1])]
+    
+         
         
         self.lr = lr     
         self.model = KAN(layers_hidden=[n_dims,n_hidden,n_dims], grid_size=grid_size) #k is order of piecewise polynomial
@@ -127,6 +138,7 @@ class Trainer:
             ax.plot(self.t, pred[:, i].detach(), linestyle="dashed", color="red", label="Prediction")
             ax.set_ylabel(labels[i])
             ax.axvline(self.tf_train)
+            ax.set_ylim(self.plot_lims[i])
         
         ax.set_xlabel("time [s]")
         fig.legend(loc="center right")
@@ -169,18 +181,34 @@ class Trainer:
         p2 = self.model.layers[0].base_weight
         p3 = self.model.layers[1].spline_weight
         p4 = self.model.layers[1].base_weight
-        batches, solutions = self._batchify_data(batch_size, batch_length)
+        ds = ODEDataset(self.soln_arr_train, self.t_train, batch_length)
+        dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
+        t_int = self.t_train[:batch_length].float()
+        
         
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
-            for batch, targ in zip(batches, solutions):
-                pred=torchodeint(calDeriv, batch[0], batch[1], adjoint_params=[p1, p2, p3, p4])
+            count = 0
+            loss = 0
+            for init_cond, sol in dL:
+                # print(init_cond.size())
+                # print(t_int.size())
+                # print(sol.size())
+                init_cond = init_cond.float()
+                sol = sol.float()
+                
+                # raise RuntimeError(" Stop here ")
+                pred=torchodeint(calDeriv, init_cond, t_int, adjoint_params=[p1, p2, p3, p4])
                 # print(pred[:,0,:].shape)
+                
                 # print(self.soln_arr_train[i_start:i_start+batch_size, :].shape)
-                loss_train=torch.mean(torch.square(pred[:, 0, :]-targ))
+                loss_train=torch.mean(torch.square(pred[:, 0, :]-sol))
+                
                 # print(loss_train)
                 loss_train.retain_grad()
                 loss_train.backward()
                 self.optimizer.step()
+                loss = (loss*count + loss_train.detach().item())/(count+1)
+                count += 1
             self.loss_list_train.append(loss_train.detach().cpu())
             if epoch % val_freq ==0 or epoch == self.start_epoch:  # always evaluate the first epoch to avoid crashing..
                 with torch.no_grad():
@@ -230,11 +258,11 @@ if __name__=='__main__':
     init_cond = soln_array[0, :]
     
     trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=1, model_path="",
+                      data=soln_array, t=t, plot_F=10, model_path="",
                       checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
                       tf=100, tf_train=40, lr=0.01, 
                       image_folder="images/Lorenz")
-    trainer.train(num_epochs=100, val_freq=1, batch_size=3980)
+    trainer.train(num_epochs=200, val_freq=2, batch_size=10)
     
     
     
