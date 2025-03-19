@@ -134,8 +134,8 @@ class Trainer:
         fig, axarr = plt.subplots(self.soln_arr.shape[1], 1, sharex=True)
         labels=["x", "y", "z"]    # maximum three labels
         for i,ax in enumerate(axarr):
-            ax.plot(self.t, self.soln_arr[:, i].detach(), color='black', label="Truth")
-            ax.plot(self.t, pred[:, i].detach(), linestyle="dashed", color="red", label="Prediction")
+            ax.plot(self.t, self.soln_arr[:, i].detach(), color='black', label="Truth", lw=0.5)
+            ax.plot(self.t, pred[:, i].detach(), linestyle="dashed", color="red", label="Prediction", lw=0.5)
             ax.set_ylabel(labels[i])
             ax.axvline(self.tf_train)
             ax.set_ylim(self.plot_lims[i])
@@ -155,21 +155,7 @@ class Trainer:
             plt.xlabel('epoch')
             plt.ylabel('loss')
             plt.savefig(os.path.join(self.im_f, "loss.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
-        plt.close('all')
-      
-    def _batchify_data(self, batch_size, batch_length):
-        start_indexes = np.arange(0, self.samples_train, batch_length)
-        init_conds = self.soln_arr[start_indexes,:]
-        batch_times = [self.t_train[start_index:min(start_index+batch_length, self.samples_train)] for start_index in start_indexes]
-        batches = []
-        for i in range(0, len(start_indexes), batch_size):
-            batch_init_conds = init_conds[i:min(i+batch_size, start_indexes.size)]
-            batch_tint = batch_times[i:min(i+batch_size, start_indexes.size)]
-            batches.append((batch_init_conds, batch_tint))
-        solutions = [self.soln_arr_train[start_index:min(start_index+batch_length, self.samples_train)] for start_index in start_indexes]
-        return batches, solutions    
-        
-        
+        plt.close('all')  
            
     def train(self, num_epochs=10000, val_freq=10, batch_size=16, batch_length=100 ):
         def calDeriv(t, X):
@@ -258,11 +244,11 @@ if __name__=='__main__':
     init_cond = soln_array[0, :]
     
     trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=10, model_path="",
+                      data=soln_array, t=t, plot_F=10,
                       checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-                      tf=100, tf_train=40, lr=0.01, 
-                      image_folder="images/Lorenz")
-    trainer.train(num_epochs=200, val_freq=2, batch_size=10)
+                      tf=100, tf_train=40, lr=0.1, 
+                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/last.pt")
+    trainer.train(num_epochs=600, val_freq=2, batch_size=10)
     
     
     

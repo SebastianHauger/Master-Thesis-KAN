@@ -10,10 +10,13 @@ import matplotlib.pyplot as plt
 import numpy as np 
 import random 
 from the_well.benchmark.metrics import VRMSE
+import os
 
 
 PATH_TO_BASE_HOME = "datasets"
 PATH_TO_BASE_ALVIS = "/mimer/NOBACKUP/groups/shallow_ukan/datasets"
+IMAGE_DIR = "images/SWE"
+MODEL_DIR = "TrainedModels/UStructures"
 
 def get_data_helper(split, home):
     if home:
@@ -95,9 +98,9 @@ def load_trained_UKAN_ptfile(name,device, KAN):
         dataset = get_dataset("train", PATH_TO_BASE_HOME, True)
         model = UNetClassic(3, 3, dataset.metadata)
     if device == 'cpu':
-        checkpoint = torch.load("Trained models/"+name, map_location=torch.device('cpu'), weights_only=False)
+        checkpoint = torch.load(os.path.join(MODEL_DIR,name), map_location=torch.device('cpu'), weights_only=False)
     else:
-        checkpoint = torch.load('Trained models/UKAN.pth', weights_only=False)
+        checkpoint = torch.load(os.path.join(MODEL_DIR,name), weights_only=False)
     print(checkpoint.keys())
     print(checkpoint["validation_loss"])
     print(checkpoint["epoch"])
@@ -108,9 +111,9 @@ def load_trained_UKAN_ptfile(name,device, KAN):
 def load_trained_UKAN_pth_file(name, device):
     model = UKAN(padding="asym_all")
     if device == "cpu":
-        checkpoint = torch.load("Trained models/"+name, map_location=torch.device('cpu'))
+        checkpoint = torch.load(os.path.join(MODEL_DIR,name), map_location=torch.device('cpu'))
     else:
-        checkpoint = torch.load('Trained models/UKAN.pth')
+        checkpoint = torch.load(os.path.join(MODEL_DIR,name))
     model.load_state_dict(checkpoint)
     model.to(device)
     return model
@@ -161,7 +164,7 @@ def plot_prediction(model, device, plot_fields, epochs):
         axs[1, 0].set_ylabel("velocity theta")
         axs[2, 0].set_ylabel("velocity phi")
         plt.tight_layout()
-        plt.savefig(f"images/{epochs}epochs_train.pdf", bbox_inches='tight', dpi=200)
+        plt.savefig(os.path.join(IMAGE_DIR, f"{epochs}epochs_train.pdf"), bbox_inches='tight', dpi=200)
         plt.show()
         if plot_fields:
             fig, axs = plt.subplots(3, 3) 
@@ -249,8 +252,8 @@ def plot_error_after_n_steps(model, n, device):
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("best_unet.pt", device, KAN=False)
+    model = load_trained_UKAN_ptfile("flat_lr.pt", device, KAN=True)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    plot_prediction(model, device, True, epochs="unetother")
+    plot_prediction(model, device, True, epochs="50")
     # plot_error_after_n_steps(model, 10, device)
