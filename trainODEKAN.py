@@ -170,32 +170,54 @@ class Trainer:
         ds = ODEDataset(self.soln_arr_train, self.t_train, batch_length)
         dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
         t_int = self.t_train[:batch_length].float()
+        scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer,1., 0.01, 1000)
         
         
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
             count = 0
             loss = 0
             for init_cond, sol in dL:
-                # print(init_cond.size())
-                # print(t_int.size())
-                # print(sol.size())
-                init_cond = init_cond.float()
-                sol = sol.float()
                 
+                init_cond = init_cond.float()
+                # print(init_cond.detach())
+                sol = sol.float()
+                # print(t_int.detach())
+                # print(sol.detach())
+                # raise RuntimeError 
                 # raise RuntimeError(" Stop here ")
                 pred=torchodeint(calDeriv, init_cond, t_int, adjoint_params=[p1, p2, p3, p4])
-                # print(pred[:,0,:].shape)
                 
+                # predp = pred.detach().numpy()
+                # solp = sol.detach().numpy()
+                # predp = np.reshape(predp, (18, 2)) 
+                # solp = np.reshape(solp, (,2))
+                # plt.figure()
+                # for i in range(batch_size):
+                #     for j in range(2):
+                #         plt.plot(t_int, predp[:, i, j], label="pred")
+                #         plt.plot(t_int, solp[i,:, j], label="sol")
+                # plt.legend()
+                # plt.show()
+                    
+                # print(pred[:,0,:].shape)
+                # print((pred[:, 0, :]-sol).size())
+                # print((pred.size()))
+                # print(pred.detach())
                 # print(self.soln_arr_train[i_start:i_start+batch_size, :].shape)
-                loss_train=torch.mean(torch.square(pred[:, 0, :]-sol))
+                
+                loss_train=torch.mean(torch.square(pred-sol.transpose(0,1)))
+                # print(f"loss: {loss_train.detach().item()}")
                 
                 # print(loss_train)
                 loss_train.retain_grad()
                 loss_train.backward()
                 self.optimizer.step()
-                loss = (loss*count + loss_train.detach().item())/(count+1)
-                count += 1
-            self.loss_list_train.append(loss_train.detach().cpu())
+                # print(init_cond.shape[0])
+                loss = (loss*count + init_cond.shape[0]*loss_train.detach().item())/(count+init_cond.shape[0])
+                # print(f"mean: {loss}")
+                
+                count += init_cond.shape[0]
+            self.loss_list_train.append(loss)
             if epoch % val_freq ==0 or epoch == self.start_epoch:  # always evaluate the first epoch to avoid crashing..
                 with torch.no_grad():
                     pred_test=torchodeint(calDeriv, self.init_cond, self.t, adjoint_params=[])
@@ -210,10 +232,10 @@ class Trainer:
                     self.plotter(pred_test[:,0,:], epoch, True)
                     last = int(epoch)
             
-            bar.set_postfix(loss=loss_train.detach().item())
+            bar.set_postfix(loss=loss, lr=scheduler.get_lr())
             if epoch % self.plot_freq ==0:
                 self.plotter(pred_test[:,0,:], epoch, False)
-            
+            scheduler.step()
             if epoch % self.cp_freq == 0:
                 self.save_checkpoint(epoch, os.path.join(self.cpf, f"checkpoint_{epoch}.pt"))
         self.save_checkpoint(epoch, os.path.join(self.cpf, "last.pt"))
@@ -240,15 +262,31 @@ if __name__=='__main__':
     #                   model_path="TrainedModels/ODEKans/last.pt", checkpoint_folder="TrainedModels/ODEKans")
     # trainer.train(num_epochs=2000, val_freq=10)
     
-    soln_array, t = get_data_lorenz63()
-    init_cond = soln_array[0, :]
+    # init_cond = np.array([1,1])
+    # params = [1.5, 1, 1, 3]
+    # tf = 14
+    # N_t = 140
+    # soln_array, t = gen_data_pred_prey(X0=init_cond, alpha=params[0], beta=params[1],
+    #                                    delta=params[2], gamma=params[3], tf=tf, N_t=N_t)
+    # trainer = Trainer(n_dims=2, n_hidden=10, grid_size=5, init_cond=init_cond,
+    #                   data=soln_array, t=t, plot_F=100, checkpoint_folder="TrainedModels/ODEKans/LV",
+    #                   tf=tf, tf_train=3.5, lr=0.001, image_folder="images/pred_prey", 
+    #                   checkpoint_freq=200)
     
+    # trainer.train(1000, 10, 3, 5)
+    
+    
+    
+    soln_array, t = get_data_lorenz63()
+    soln_array = soln_array[2500:,:]
+    t = t[:-2500]
+    init_cond = soln_array[0, :] 
     trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=10,
+                      data=soln_array, t=t, plot_F=100,
                       checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-                      tf=100, tf_train=40, lr=0.1, 
-                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/last.pt")
-    trainer.train(num_epochs=600, val_freq=2, batch_size=10)
+                      tf=100, tf_train=5, lr=0.01, 
+                      image_folder="images/Lorenz", model_path="")
+    trainer.train(num_epochs=1000, val_freq=10, batch_size=32, batch_length=20)
     
     
     
