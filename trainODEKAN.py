@@ -284,7 +284,7 @@ if __name__=='__main__':
     trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
                       data=soln_array, t=t, plot_F=100,
                       checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-                      tf=100, tf_train=5, lr=0.01, 
+                      tf=20, tf_train=2.5, lr=0.01, 
                       image_folder="images/Lorenz", model_path="")
     trainer.train(num_epochs=1000, val_freq=10, batch_size=32, batch_length=20)
     
