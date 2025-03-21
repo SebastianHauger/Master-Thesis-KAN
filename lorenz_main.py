@@ -1,9 +1,32 @@
 import dafi
-from lorenz import lorenz
+from scipy.integrate import ode
 import yaml
 import numpy as np
 from trainODEKAN import get_data_lorenz63
 import matplotlib.pyplot as plt
+
+
+def lorenz(time_series, init_state, params):
+    def lorenz63(time, state, params):
+        x, y, z = state
+        rho, beta, sigma = params
+        dx = sigma * (y - x)
+        dy = rho*x - y - x*z
+        dz = x*y - beta*z
+        return [dx, dy, dz]
+    solver = ode(lorenz63)
+    solver.set_integrator('dopri5') 
+    solver.set_initial_value(init_state, time_series[0])
+    solver.set_f_params(params)
+    state = np.expand_dims(np.array(init_state), axis=0)
+    for time in time_series[1:]:
+        if not solver.successful():
+            raise RuntimeError(f"solver failed at time {time}")
+        else:
+            solver.integrate(time)
+            
+        state = np.vstack((state, solver.y))
+    return state 
 
 
 def get_vals():

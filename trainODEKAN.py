@@ -11,6 +11,7 @@ import gc
 import torch.nn as nn
 import sys
 from ODE_KAN import KAN
+from matplotlib.lines import Line2D
 
 
 
@@ -104,6 +105,8 @@ class Trainer:
         self.cpf = checkpoint_folder
         self.im_f = image_folder
         plt.rc('text', usetex=True)  # use latex for prettier plots
+        self.lines = [Line2D([0], [0], color='r', linestyle='dashed', lw=0.5), 
+                 Line2D([0], [0], color='black', lw=0.5)]
     
     def load_checkpoint(self, mp):
         checkpoint = torch.load(mp, weights_only=False)
@@ -134,14 +137,15 @@ class Trainer:
         fig, axarr = plt.subplots(self.soln_arr.shape[1], 1, sharex=True)
         labels=["x", "y", "z"]    # maximum three labels
         for i,ax in enumerate(axarr):
-            ax.plot(self.t, self.soln_arr[:, i].detach(), color='black', label="Truth", lw=0.5)
-            ax.plot(self.t, pred[:, i].detach(), linestyle="dashed", color="red", label="Prediction", lw=0.5)
+            ax.plot(self.t, self.soln_arr[:, i].detach(), color='black', label="_nolegend_", lw=0.5)
+            ax.plot(self.t, pred[:, i].detach(), linestyle="dashed", color="red", label="_nolegend_", lw=0.5)
             ax.set_ylabel(labels[i])
             ax.axvline(self.tf_train)
             ax.set_ylim(self.plot_lims[i])
         
+        axarr[0].legend(self.lines, ['Pred', "Truth"], loc='upper center', bbox_to_anchor=(0.5, 1.30), ncol=2)
+        # plt.subplots_adjust(top=0.85)
         ax.set_xlabel("time [s]")
-        fig.legend(loc="center right")
         if optimal:
             fig.suptitle(f"Current Optimal is {epoch} epochs")
             fig.savefig(os.path.join(self.im_f, "optimal_pred.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
@@ -232,7 +236,7 @@ class Trainer:
                     self.plotter(pred_test[:,0,:], epoch, True)
                     last = int(epoch)
             
-            bar.set_postfix(loss=loss, lr=scheduler.get_lr())
+            bar.set_postfix(loss=loss, lr=scheduler.get_last_lr())
             if epoch % self.plot_freq ==0:
                 self.plotter(pred_test[:,0,:], epoch, False)
             scheduler.step()
@@ -244,23 +248,9 @@ class Trainer:
 
 
 if __name__=='__main__':
-    # tf=14
-    # tf_train=3.5
-    # N_t_train=35
-    # N_t=int((35*tf/tf_train))
-    # lr=2e-3
-    # num_epochs=10000
-    # plot_freq=100
-    # alpha=1.5
-    # beta=1
-    # gamma=3
-    # delta=1
-    # X0 = np.array([1,1])
-    # soln_array, t = gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t)
-    # trainer = Trainer(X0, soln_array, tf=tf, tf_train=tf_train,
-    #                   samples_train=N_t_train, lr=lr, t=t, checkpoint_freq=200, plot_F=200,
-    #                   model_path="TrainedModels/ODEKans/last.pt", checkpoint_folder="TrainedModels/ODEKans")
-    # trainer.train(num_epochs=2000, val_freq=10)
+    # Train for predator prey
+    #
+    #
     
     # init_cond = np.array([1,1])
     # params = [1.5, 1, 1, 3]
@@ -276,6 +266,9 @@ if __name__=='__main__':
     # trainer.train(1000, 10, 3, 5)
     
     
+    # Train for lorenz 
+    #
+    #
     
     soln_array, t = get_data_lorenz63()
     soln_array = soln_array[2500:,:]
