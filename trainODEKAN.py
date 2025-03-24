@@ -271,8 +271,8 @@ if __name__=='__main__':
     #
     
     soln_array, t = get_data_lorenz63()
-    soln_array = soln_array[2500:,:]
-    t = t[:-2500]
+    # soln_array = soln_array[2500:,:]
+    # t = t[:-2500]
     init_cond = soln_array[0, :] 
     trainer = Trainer(n_dims=3, n_hidden=10, grid_size=5, init_cond=init_cond, 
                       data=soln_array, t=t, plot_F=100,
