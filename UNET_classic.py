@@ -82,6 +82,7 @@ class UNetClassic(nn.Module):
             return layer(*inputs, **kwargs)
 
     def forward(self, x):
+        first = x
         enc1 = self.optional_checkpointing(self.encoder1, x)
         enc2 = self.optional_checkpointing(self.encoder2, self.pool1(enc1))
         enc3 = self.optional_checkpointing(self.encoder3, self.pool2(enc2))
@@ -101,7 +102,7 @@ class UNetClassic(nn.Module):
         dec1 = self.optional_checkpointing(self.upconv1, dec2)
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.optional_checkpointing(self.decoder1, dec1)
-        return self.conv(dec1)
+        return torch.add(self.conv(dec1), first)
 
     def _block(self, in_channels, features, name):
         return nn.Sequential(

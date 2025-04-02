@@ -1,7 +1,9 @@
 """root of the simulation. Run files from here."""
 from torch.utils.data import DataLoader
 from new_UKAN_proposal import UKAN
-from the_well.benchmark.models.unet_classic import UNetClassic
+# from the_well.benchmark.models.unet_classic import UNetClassic
+from the_well.data import WellDataset, WellDataModule
+from UNET_classic import UNetClassic
 from tqdm import tqdm 
 from data import get_dataset
 from einops import rearrange
@@ -33,7 +35,7 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
     train_loader = DataLoader(train, batch_size=bs, shuffle=True)
     val_loader = DataLoader(val, batch_size=bs, shuffle=False)
     # model=UKAN(padding=padding)
-    model = UNetClassic()
+    model = UNetClassic(dim_in=3, dim_out=3, dset_metadata=train.metadata, init_features=32)
     model=model.to(device)
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -252,8 +254,8 @@ def plot_error_after_n_steps(model, n, device):
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("flat_lr.pt", device, KAN=True)
+    model = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
     plot_prediction(model, device, True, epochs="50")
-    # plot_error_after_n_steps(model, 10, device)
+    plot_error_after_n_steps(model, 10, device)
