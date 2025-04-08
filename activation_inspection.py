@@ -18,7 +18,7 @@ def plot_activations(kan):
             splines = splines.view(X.size(0), -1)
             # print(layer.scaled_spline_weight.shape)
             # print(layer.scaled_spline_weight)
-            # Xout = F.linear(splines.view(X.size(0), -1), layer.scaled_spline_weight.view(10, -1))
+            Xout = F.linear(splines.view(X.size(0), -1), layer.scaled_spline_weight.view(10, -1))
             # Xout.transpose(0, 1)
             
             for i in range(splines.size(1)):
