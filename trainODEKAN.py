@@ -162,7 +162,7 @@ class Trainer:
             plt.close('all')
             plt.figure()
             plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
-            plt.semilogy(self.epoch_list_test, torch.Tensor(self.loss_list_test), label='test')
+            # plt.semilogy(self.epoch_list_test, torch.Tensor(self.loss_list_test), label='test')
             plt.legend()
             plt.xlabel('epoch')
             plt.ylabel('loss')
@@ -181,7 +181,7 @@ class Trainer:
         p4 = self.model.layers[1].base_weight
         print(self.soln_arr_train.shape)
         n = max(n_min, 2)
-        batch_size=1 + int(self.samples_train/(n*4))
+        batch_size= batch_size
         ds = ODEDataset(self.soln_arr_train, self.t_train, n)
         dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
         t_int = self.t_train[:n].float()
@@ -259,8 +259,9 @@ class Trainer:
                         print(f"Numerical instability encountered at epoch {epoch}: {e}")
                         self.loss_list_test.append(float('inf'))
                         self.epoch_list_test.append(epoch)
-                        pred_test = torchodeint(calDeriv, self.init_cond, self.t_train, adjoint_params=[], rtol=1e-5, atol=1e-7)
-                        t = self.t_train
+                        # pred_test = torchodeint(calDeriv, self.init_cond, self.t_train, adjoint_params=[], rtol=1e-5, atol=1e-7)
+                        pred_test = torch.zeros(self.soln_arr.size)
+                        t = self.t
             #if epoch ==5:  # seems like they never update the grid....
             #    model.update_grid_from_samples(X0)
             if loss_train<self.loss_min:
@@ -322,38 +323,38 @@ class Trainer:
 
 
 if __name__=='__main__':
-    # Train for predator prey
+    # # Train for predator prey
     
     
     
-    init_cond = np.array([1,1])
-    params = [1.5, 1, 1, 3]
-    tf = 14
-    N_t = 140
-    soln_array, t = gen_data_pred_prey(X0=init_cond, alpha=params[0], beta=params[1],
-                                       delta=params[2], gamma=params[3], tf=tf, N_t=N_t)
-    trainer = Trainer(n_dims=2, n_hidden=10, grid_size=5, init_cond=init_cond,
-                      data=soln_array, t=t, plot_F=100, checkpoint_folder="TrainedModels/ODEKans/LV",
-                      tf=tf, tf_train=3.6, lr=0.001, image_folder="images/pred_prey", 
-                      checkpoint_freq=200)   #, model_path="TrainedModels/ODEKans/LV/checkpoint_800.pt")
+    # init_cond = np.array([1,1])
+    # params = [1.5, 1, 1, 3]
+    # tf = 14
+    # N_t = 140
+    # soln_array, t = gen_data_pred_prey(X0=init_cond, alpha=params[0], beta=params[1],
+    #                                    delta=params[2], gamma=params[3], tf=tf, N_t=N_t)
+    # trainer = Trainer(n_dims=2, n_hidden=10, grid_size=5, init_cond=init_cond,
+    #                   data=soln_array, t=t, plot_F=100, checkpoint_folder="TrainedModels/ODEKans/LV",
+    #                   tf=tf, tf_train=3.6, lr=0.001, image_folder="images/pred_prey", 
+    #                   checkpoint_freq=200)   #, model_path="TrainedModels/ODEKans/LV/checkpoint_800.pt")
     
-    trainer.train(1000, 10, 3, 7, n_min=2, n_max=20)
+    # trainer.train(1000, 10, 3, 7, n_min=2, n_max=20)
     
     
     # Train for lorenz 
     
     
     
-    # soln_array, t = get_data_lorenz63()
-    # # soln_array = soln_array[2500:,:]
-    # # t = t[:-2500]
-    # init_cond = soln_array[0, :] 
-    # trainer = Trainer(n_dims=3, n_hidden=15, grid_size=5, init_cond=init_cond, 
-    #                   data=soln_array, t=t, plot_F=100,
-    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-    #                   tf=20, tf_train=2.5, lr=0.001, 
-    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/checkpoint_6000.pt")
-    # trainer.train(num_epochs=10000, val_freq=100, batch_size=5, batch_length=100, n_min=25, n_max=100)
+    soln_array, t = get_data_lorenz63()
+    # soln_array = soln_array[2500:,:]
+    # t = t[:-2500]
+    init_cond = soln_array[0, :] 
+    trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, 
+                      data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
+                      tf=20, tf_train=16, lr=0.001, 
+                      image_folder="images/Lorenz" , model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_2000.pt")
+    trainer.train(num_epochs=10000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
     
     
     # Test different rollout lengths
@@ -361,12 +362,12 @@ if __name__=='__main__':
     # # soln_array = soln_array[2500:,:]
     # # t = t[:-2500]
     # init_cond = soln_array[0, :] 
-    # trainer = Trainer(n_dims=3, n_hidden=15, grid_size=5, init_cond=init_cond, 
+    # trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, 
     #                   data=soln_array, t=t, plot_F=100,
     #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
     #                   tf=20, tf_train=2.5, lr=0.001, 
-    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/checkpoint_2500.pt")
-    # trainer.test_model([100, 500, 2000])
+    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_2000.pt")
+    # trainer.test_model([50, 100, 500])
     
     
     

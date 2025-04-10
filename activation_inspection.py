@@ -5,35 +5,48 @@ import torch.nn.functional as F
 
 
 def plot_activations(kan):
-    x = torch.arange(-10, 10.1, 0.1)
-    X = x.unsqueeze(1).repeat(1, 3)
-    with torch.no_grad():
-        for layer in kan.layers:
-            n = layer.in_features
-            print(n)
-            X = x.unsqueeze(1).repeat(1, n)
-            # layer.base_weight = 0.0
-            splines = layer.b_splines(X)
-            # print(splines.shape)
-            splines = splines.view(X.size(0), -1)
-            # print(layer.scaled_spline_weight.shape)
-            # print(layer.scaled_spline_weight)
-            Xout = F.linear(splines.view(X.size(0), -1), layer.scaled_spline_weight.view(10, -1))
-            # Xout.transpose(0, 1)
-            
-            for i in range(splines.size(1)):
-                plt.figure()
-                plt.plot(X[:,0].numpy(), splines[:,i].detach().numpy())
-                plt.title(f"Node {i}")
-                plt.show()
+    axis = torch.linspace(-2, 2, 50)
+    layer0 = kan.layers[0]
+    in_dim = layer0.in_features
+    hidden_dim = layer0.out_features
+    
+    
+    fig, ax = plt.subplots(in_dim, hidden_dim, sharex=True, sharey=True)
+    for i in range(in_dim):
+        X = torch.zeros((50, in_dim))
+        X[:, i] = axis 
+        Xout = layer0(X).detach().numpy()
+        X = X.detach().numpy()
+        for j in range(hidden_dim):
+            ax[i,j].plot(X[:, i], Xout[:, j])
+            # ax[i, j].set_aspect('equal')
+    plt.show()
+    
+    fig, ax = plt.subplots(in_dim, hidden_dim, sharex=True, sharey=True)
+    layer1 = kan.layers[1]
+    for i in range(hidden_dim):
+        X = torch.zeros((50, hidden_dim))
+        X[:, i] = axis 
+        Xout = layer1(X).detach().numpy()
+        X = X.detach().numpy()
+        for j in range(in_dim):
+            ax[j,i].plot(X[:, i], Xout[:, j])
+            # ax[i, j].set_aspect('equal')
+    plt.show()
+        
+    
+        
+        
+    
+    layer1  = kan.layers[1]
         
 
 
 
 
 if __name__ == '__main__':
-    model = KAN(layers_hidden=[3, 10, 3], grid_size=5)
-    trained = torch.load("TrainedModels/ODEKans/Lorenz/checkpoint_7700.pt")
+    model = KAN(layers_hidden=[3, 4, 3], grid_size=5)
+    trained = torch.load("TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_2000.pt")
     model.load_state_dict(trained["model_state_dict"])
     plot_activations(model)
     

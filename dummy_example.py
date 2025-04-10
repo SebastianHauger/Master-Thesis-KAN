@@ -123,7 +123,35 @@ def train_model(X, Y, Z, epochs):
     ax[0].legend()
     ax[1].legend()
     
+    
     plt.show()
+    
+    # Further we moove to see whether we can truly decompose the solutions again
+    
+    empty = torch.zeros(50)
+    xy_short = torch.linspace(-1, 1, 50)
+    
+    xdat = torch.stack((empty, xy_short), dim=-1)
+    ydat = torch.stack((empty, xy_short), dim=-1)
+    
+    x_act = layer(xdat).detach().numpy()
+    y_act = layer(ydat).detach().numpy()
+    
+    fig, ax = plt.subplots(2, 2, sharex=True)
+    xax = xdat.detach().numpy()
+    ax[0, 0].plot(xax, x_act[:,0], label="First X act")
+    ax[0, 1].plot(xax, x_act[:,1], label="Second X act")
+    ax[1, 0].plot(xax, y_act[:,0], label="First X act")
+    ax[1, 1].plot(xax, y_act[:,1], label="Second X act")
+    for i in range(2):
+        ax[i, 0].legend()
+        ax[i, 1].legend()
+    plt.tight_layout()
+    plt.show()
+
+    
+    
+    
 
     target = ds.targets
     predictions = model(inputs)
