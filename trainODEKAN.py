@@ -282,6 +282,7 @@ class Trainer:
     
     
     def test_model(self, rollout_lengths=[100]):
+        plt.rc('lines', linewidth=0.5)
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
@@ -345,29 +346,29 @@ if __name__=='__main__':
     
     
     
+    # soln_array, t = get_data_lorenz63()
+    # # soln_array = soln_array[2500:,:]
+    # # t = t[:-2500]
+    # init_cond = soln_array[0, :] 
+    # trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init_cond=init_cond, 
+    #                   data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
+    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
+    #                   tf=20, tf_train=16, lr=0.001, 
+    #                   image_folder="images/Lorenz")     # ,model_path="TrainedModels/ODEKans/Lorenz/1step_train/last_only4nodes.pt")
+    # trainer.train(num_epochs=10000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
+    
+    
+    # # Test different rollout lengths
     soln_array, t = get_data_lorenz63()
     # soln_array = soln_array[2500:,:]
     # t = t[:-2500]
     init_cond = soln_array[0, :] 
     trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
-                      checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
-                      tf=20, tf_train=16, lr=0.001, 
-                      image_folder="images/Lorenz" , model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_2000.pt")
-    trainer.train(num_epochs=10000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
-    
-    
-    # Test different rollout lengths
-    # soln_array, t = get_data_lorenz63()
-    # # soln_array = soln_array[2500:,:]
-    # # t = t[:-2500]
-    # init_cond = soln_array[0, :] 
-    # trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, 
-    #                   data=soln_array, t=t, plot_F=100,
-    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-    #                   tf=20, tf_train=2.5, lr=0.001, 
-    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_2000.pt")
-    # trainer.test_model([50, 100, 500])
+                      data=soln_array, t=t, plot_F=100,
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+                      tf=20, tf_train=2.5, lr=0.001, 
+                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/last_4nodes1500.pt")
+    trainer.test_model([50, 100, 500])
     
     
     

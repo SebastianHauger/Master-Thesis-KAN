@@ -11,7 +11,7 @@ def plot_activations(kan):
     hidden_dim = layer0.out_features
     
     
-    fig, ax = plt.subplots(in_dim, hidden_dim, sharex=True, sharey=True)
+    fig, ax = plt.subplots(in_dim, hidden_dim, sharex=True, sharey=False)
     for i in range(in_dim):
         X = torch.zeros((50, in_dim))
         X[:, i] = axis 
@@ -20,9 +20,13 @@ def plot_activations(kan):
         for j in range(hidden_dim):
             ax[i,j].plot(X[:, i], Xout[:, j])
             # ax[i, j].set_aspect('equal')
+    fig.suptitle("Input->Hidden activations")
+    fig.supylabel("Input index")
+    fig.supxlabel("Hidden index")
+    plt.savefig("images/Lorenz/Activations/4nodes_in_hidden.pdf", dpi=200)
     plt.show()
     
-    fig, ax = plt.subplots(in_dim, hidden_dim, sharex=True, sharey=True)
+    fig, ax = plt.subplots(hidden_dim, in_dim, sharex=True, sharey=False)
     layer1 = kan.layers[1]
     for i in range(hidden_dim):
         X = torch.zeros((50, hidden_dim))
@@ -30,8 +34,12 @@ def plot_activations(kan):
         Xout = layer1(X).detach().numpy()
         X = X.detach().numpy()
         for j in range(in_dim):
-            ax[j,i].plot(X[:, i], Xout[:, j])
+            ax[i,j].plot(X[:, i], Xout[:, j])
             # ax[i, j].set_aspect('equal')
+    fig.suptitle("Hidden->Output activations")
+    fig.supylabel("Hidden index")
+    fig.supxlabel("Output index")
+    plt.savefig("images/Lorenz/Activations/4nodes_hidden_out.pdf", dpi=200)
     plt.show()
         
     
@@ -46,7 +54,7 @@ def plot_activations(kan):
 
 if __name__ == '__main__':
     model = KAN(layers_hidden=[3, 4, 3], grid_size=5)
-    trained = torch.load("TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_2000.pt")
+    trained = torch.load("TrainedModels/ODEKans/Lorenz/1step_train/last_4nodes1500.pt")
     model.load_state_dict(trained["model_state_dict"])
     plot_activations(model)
     
