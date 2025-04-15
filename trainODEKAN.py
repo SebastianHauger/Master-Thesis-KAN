@@ -308,7 +308,7 @@ class Trainer:
                 for i in range(self.soln_arr.shape[1]):
                     axarr[i].plot(self.t.numpy(), prediction[:,i], linestyle='dashed', color=colors[j], label=f"_nolabel_")
         for i in range(self.soln_arr.shape[1]):
-            axarr[i].plot(self.t.numpy(), self.soln_arr[:,i].detach().numpy(), color=colors[-1], label="_nolabel_")
+            axarr[i].plot(self.t.numpy(), self.soln_arr[:,i].detach().numpy(), color="black", label="_nolabel_")
             axarr[i].set_ylim(self.plot_lims[i])
         
         
@@ -316,7 +316,7 @@ class Trainer:
         lines = [Line2D([0], [0], linestyle="dashed", color=colors[i]) for i in range(len(rollout_lengths))] 
         labels = [f"RL={rl}" for rl in rollout_lengths]
         labels.append("Truth")
-        lines.append(Line2D([0], [0], color=colors[-1]))
+        lines.append(Line2D([0], [0], color="black"))
         axarr[0].legend(lines, labels, loc="upper center", bbox_to_anchor=(0.5, 1.30), ncol=2)
         plt.tight_layout()
         plt.show()

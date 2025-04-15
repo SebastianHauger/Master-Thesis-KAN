@@ -14,9 +14,6 @@ def xy_data(n_x=20, n_y=20):
     X = X.flatten()
     Y = Y.flatten()
     Z = Z.flatten()
-    X = X
-    Y = Y
-    Z= Z
     print(X.shape, Y.shape, Z.shape)
     return X, Y, Z
 
@@ -53,7 +50,7 @@ def train_model(X, Y, Z, epochs):
     ds = XYDataset((X,Y), Z)
     dL = DataLoader(ds, batch_size=25, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.95)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.99)
     loss = nn.MSELoss()
     loss_list = []
     model.train()
@@ -84,7 +81,7 @@ def train_model(X, Y, Z, epochs):
         loss_list.append(ep_loss)
     # print(model.net[0].weight)
     plt.figure()
-    plt.plot(loss_list)
+    plt.semilogy(loss_list)
     plt.show()
     
     
@@ -126,32 +123,44 @@ def train_model(X, Y, Z, epochs):
     
     plt.show()
     
-    # Further we moove to see whether we can truly decompose the solutions again
-    
     empty = torch.zeros(50)
     xy_short = torch.linspace(-1, 1, 50)
     
-    xdat = torch.stack((empty, xy_short), dim=-1)
+    xdat = torch.stack((xy_short, empty), dim=-1)
     ydat = torch.stack((empty, xy_short), dim=-1)
     
     x_act = layer(xdat).detach().numpy()
     y_act = layer(ydat).detach().numpy()
+    print(x_act.shape)
     
     fig, ax = plt.subplots(2, 2, sharex=True)
-    xax = xdat.detach().numpy()
-    ax[0, 0].plot(xax, x_act[:,0], label="First X act")
-    ax[0, 1].plot(xax, x_act[:,1], label="Second X act")
-    ax[1, 0].plot(xax, y_act[:,0], label="First X act")
-    ax[1, 1].plot(xax, y_act[:,1], label="Second X act")
-    for i in range(2):
-        ax[i, 0].legend()
-        ax[i, 1].legend()
+    xax = xdat[:, 0].detach().numpy()
+    print(xdat.shape)
+    print(xax)
+    ax[0, 0].plot(xax, x_act[:,0])
+    ax[1, 0].plot(xax, x_act[:,1])
+    ax[0, 1].plot(xax, y_act[:,0])
+    ax[1, 1].plot(xax, y_act[:,1])
+    fig.supxlabel("Input dim")
+    fig.supylabel("Hidden dim")
     plt.tight_layout()
+    plt.savefig("images/Misc/XY_act_inHidden.pdf", dpi=200, bbox_inches='tight')
     plt.show()
-
     
     
     
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    layer2 = model.layers[1]
+    x_act2 = layer2(xdat).detach().numpy()
+    y_act2 = layer2(ydat).detach().numpy()
+    ax[0].plot(xax, x_act2)
+    ax[1].plot(xax, y_act2)
+    fig.supylabel("Hidden dim")
+    fig.supxlabel("Output dim")
+    plt.savefig("images/Misc/XY_act_hiddenOut.pdf", dpi=200, bbox_inches='tight')
+    plt.show()
+    
+ 
 
     target = ds.targets
     predictions = model(inputs)
@@ -172,7 +181,7 @@ def train_model(X, Y, Z, epochs):
 
 if __name__=="__main__":
     X, Y, Z = xy_data(10, 10)
-    train_model(X, Y, Z, 1000)
+    train_model(X, Y, Z, 2000)
     
     
         
