@@ -1,9 +1,15 @@
 from ODE_KAN import KAN
+from cycler import cycler
 from torch.utils.data import Dataset, DataLoader
 import torch
 from tqdm import tqdm 
 import matplotlib.pyplot as plt
 import torch.nn as nn
+import matplotlib as mpl
+
+mpl.rcParams['lines.color'] = "black"
+mpl.rcParams['lines.linewidth'] = 1.5
+mpl.rcParams['axes.prop_cycle'] = cycler(color=["black", "red", "orange", "green"])
 
 
 def xy_data(n_x=20, n_y=20):
@@ -47,10 +53,12 @@ class XYDataset(Dataset):
 def train_model(X, Y, Z, epochs):
     model = KAN([2, 2, 1], grid_size=5, grid_range=[-1.5, 1.5])
     # model = MLP()
+    print(model.layers[0].spline_weight.shape)
+    print(model.layers[1].spline_weight.shape)
     ds = XYDataset((X,Y), Z)
     dL = DataLoader(ds, batch_size=25, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.99)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9999)
     loss = nn.MSELoss()
     loss_list = []
     model.train()
@@ -61,11 +69,12 @@ def train_model(X, Y, Z, epochs):
             
             # print(input)
             # print(target)
-            pred=model(input)
+            pred=model(input, update_grid=False)
             # if epoch % 100 == 0:
             #     pred = model(input, update_grid=True)
             
-            loss = torch.mean(torch.square(target-pred.transpose(0,1)))
+            loss = torch.mean(torch.square(target-pred.transpose(0,1))) 
+            
             # print((target-pred.transpose(0,1)).shape)
             loss.backward()
             optimizer.step()
@@ -74,17 +83,18 @@ def train_model(X, Y, Z, epochs):
             
             # print(loss.item())
             ep_loss += loss.item()
+            
         
-        # scheduler.step()
+        scheduler.step()
         
-        bar.set_postfix(loss=ep_loss)
+        bar.set_postfix(loss=(ep_loss))
         loss_list.append(ep_loss)
     # print(model.net[0].weight)
     plt.figure()
     plt.semilogy(loss_list)
     plt.show()
     
-    
+    print(plt.rcParams['lines.color'])
     
     inputs = ds.inputs
     inp = inputs.detach().numpy()
@@ -109,7 +119,8 @@ def train_model(X, Y, Z, epochs):
         ax[0].plot_surface(X, Y, Z, label=f"node {i}")
         
         
-
+    print(model.layers[0].spline_weight.shape)
+    print(model.layers[1].spline_weight.shape)
     
     # now show the expected shapes: 
     print(layer.base_weight)
@@ -166,6 +177,8 @@ def train_model(X, Y, Z, epochs):
     predictions = model(inputs)
     
     
+    
+    
     pred = predictions.detach().numpy()
     X = inp[:, 0].reshape((10, 10))
     Y = inp[:, 1].reshape((10, 10))
@@ -181,7 +194,7 @@ def train_model(X, Y, Z, epochs):
 
 if __name__=="__main__":
     X, Y, Z = xy_data(10, 10)
-    train_model(X, Y, Z, 2000)
+    train_model(X, Y, Z, 1000)
     
     
         

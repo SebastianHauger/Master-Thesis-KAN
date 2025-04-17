@@ -1,11 +1,12 @@
 from the_well.benchmark.trainer.training import Trainer
 from the_well.benchmark.metrics.spatial import VRMSE
 # from torch.utils.data import DataLoader
-from new_UKAN_proposal import UKAN
+# from new_UKAN_proposal import UKAN
 # from the_well.benchmark.models.unet_classic import UNetClassic
 # from tqdm import tqdm 
 from data import get_datamodule
-from UNET_classic import UNetClassic
+# from UNET_classic import UNetClassic
+from UKAN_smaller import UKAN
 # from einops import rearrange
 import torch
 # import matplotlib.pyplot as plt
@@ -88,13 +89,13 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
             The path to the model checkpoint to load. If empty, the model is trained from scratch.
     """
     wandb.init()
-    # model = UKAN(padding=padding).to(device)
+    model = UKAN(padding=padding).to(device)
     
     datamodule = get_datamodule(path_to_repo=path_to_base,
                                 batch_size=batch_size, 
                                 max_rollout_steps=max_rollout_steps, 
                                 normalize=normalize)
-    model = UNetClassic(dim_in=3, dim_out=3, dset_metadata=datamodule.train_dataset.metadata, init_features=32)
+    # model = UNetClassic(dim_in=3, dim_out=3, dset_metadata=datamodule.train_dataset.metadata, init_features=32)
     loss = VRMSE()   # Use same loss as them
     
     
@@ -152,7 +153,7 @@ if __name__=='__main__':
         padding=padding, 
         epochs=50,
         path_to_base=info["ptb"],
-        batch_size=54, 
+        batch_size=128, 
         normalize=True)
     # ,
     #     checkpoint_path=info["cpp"] #remove this if one wishes to train from beginning

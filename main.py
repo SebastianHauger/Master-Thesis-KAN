@@ -13,6 +13,7 @@ import numpy as np
 import random 
 from the_well.benchmark.metrics import VRMSE
 import os
+from UKAN_smaller import UKAN as SmallUKAN
 
 
 PATH_TO_BASE_HOME = "datasets"
@@ -36,6 +37,7 @@ def train_UKAN(epochs, lr, device, bs=64, home=False, padding='uniform'):
     val_loader = DataLoader(val, batch_size=bs, shuffle=False)
     # model=UKAN(padding=padding)
     model = UNetClassic(dim_in=3, dim_out=3, dset_metadata=train.metadata, init_features=32)
+    model = SmallUKAN(padding=padding)
     model=model.to(device)
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -103,9 +105,9 @@ def load_trained_UKAN_ptfile(name,device, KAN):
         checkpoint = torch.load(os.path.join(MODEL_DIR,name), map_location=torch.device('cpu'), weights_only=False)
     else:
         checkpoint = torch.load(os.path.join(MODEL_DIR,name), weights_only=False)
-    print(checkpoint.keys())
-    print(checkpoint["validation_loss"])
-    print(checkpoint["epoch"])
+    # print(checkpoint.keys())
+    # print(checkpoint["validation_loss"])
+    # print(checkpoint["epoch"])
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     return model
@@ -248,14 +250,20 @@ def plot_error_after_n_steps(model, n, device):
         plt.show()
     
             
-            
+def get_num_trainable_parameters(model):
+    # get the number of trainable parameters. 
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)            
 
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    model = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
+    # model = UNetClassic(3, 3, )
+    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
+    # model = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
+    # model = load_trained_UKAN_ptfile("best.pt", device, KAN=True)
+    # model = SmallUKAN(padding='asym_all')
+    # print(get_num_trainable_parameters(model))
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    plot_prediction(model, device, True, epochs="50")
-    plot_error_after_n_steps(model, 10, device)
+    # plot_prediction(model, device, True, epochs="50")
+    # plot_error_after_n_steps(model, 10, device)

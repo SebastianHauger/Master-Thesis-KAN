@@ -168,6 +168,7 @@ class KANLinear(torch.nn.Module):
 
     @torch.no_grad()
     def update_grid(self, x: torch.Tensor, margin=0.01):
+        # print("updating_grid")
         assert x.dim() == 2 and x.size(1) == self.in_features
         batch = x.size(0)
 
@@ -236,6 +237,70 @@ class KANLinear(torch.nn.Module):
             + regularize_entropy * regularization_loss_entropy
         )
 
+
+
+class SmallKANBlock(nn.Module):
+    def __init__(self, in_features, padding, out_features=None, act_layer=nn.GELU, drop_path=0., norm_layer=nn.LayerNorm):
+        super().__init__()
+        out_features = out_features or in_features
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.dim = in_features
+        self.norm2 = norm_layer(self.dim)
+        
+        
+        grid_size = 5
+        spline_order = 3
+        scale_noise=0.1
+        scale_base = 1.0
+        scale_spline=1.0
+        base_activation=torch.nn.SiLU
+        grid_eps=0.02
+        grid_range=[-1,1]
+        
+        
+        self.fcKAN = KANLinear(
+                        in_features,
+                        out_features,
+                        grid_size=grid_size,
+                        spline_order=spline_order,
+                        scale_noise=scale_noise,
+                        scale_base=scale_base,
+                        scale_spline=scale_spline,
+                        base_activation=base_activation,
+                        grid_eps=grid_eps,
+                        grid_range=grid_range,
+                    )
+        self.dwConv = DW_bn_relu(out_features, padding)
+    
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.normal_(m.weight, std=.02) # they use a timm library, but we might want to simply implement this with something else to reduce package count
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+    
+    
+    def forward(self, x, H, W):
+        # pdb.set_trace()
+        B, N, C = x.shape
+        inx = x
+        x = self.fcKAN(self.norm2(x).reshape(B*N,C))
+        x = x.reshape(B,N,C).contiguous()
+        x = self.dwConv(x, H, W)
+        return inx + self.drop_path(x)
+    
+    
+    
+        
+        
         
 class KANLayer(nn.Module):
     def __init__(self, in_features, padding, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., no_kan=False):
