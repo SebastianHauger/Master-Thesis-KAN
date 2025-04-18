@@ -7,12 +7,14 @@
 *.xlsx
 *.hdf5
 test_file.py
+*.json
 
 # trained model dicts
 *.pth
 *.pt 
 *.in
 *.mat
+
 
 # ignore all files from the results folder
 Results/*
