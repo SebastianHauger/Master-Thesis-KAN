@@ -84,24 +84,32 @@ class UNetClassic(nn.Module):
     def forward(self, x):
         first = x
         enc1 = self.optional_checkpointing(self.encoder1, x)
+        print(f"enc1 shape {enc1.shape}")
         enc2 = self.optional_checkpointing(self.encoder2, self.pool1(enc1))
+        print(f"enc2 shape {enc2.shape}")
         enc3 = self.optional_checkpointing(self.encoder3, self.pool2(enc2))
+        print(f"enc3 shape {enc3.shape}")
         enc4 = self.optional_checkpointing(self.encoder4, self.pool3(enc3))
+        print(f"enc4 shape {enc4.shape}")
 
         bottleneck = self.optional_checkpointing(self.bottleneck, self.pool4(enc4))
-
+        print(f"bottleneck shape {bottleneck.shape}")
         dec4 = self.optional_checkpointing(self.upconv4, bottleneck)
         dec4 = torch.cat((dec4, enc4), dim=1)
         dec4 = self.optional_checkpointing(self.decoder4, dec4)
+        print(f"dec4 shape {dec4.shape}")
         dec3 = self.optional_checkpointing(self.upconv3, dec4)
         dec3 = torch.cat((dec3, enc3), dim=1)
         dec3 = self.optional_checkpointing(self.decoder3, dec3)
+        print(f"dec3 shape {dec3.shape}")
         dec2 = self.optional_checkpointing(self.upconv2, dec3)
         dec2 = torch.cat((dec2, enc2), dim=1)
         dec2 = self.optional_checkpointing(self.decoder2, dec2)
+        print(f"dec2 shape {dec2.shape}")
         dec1 = self.optional_checkpointing(self.upconv1, dec2)
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.optional_checkpointing(self.decoder1, dec1)
+        print(f"dec1 shape {dec1.shape}")
         return torch.add(self.conv(dec1), first)
 
     def _block(self, in_channels, features, name):

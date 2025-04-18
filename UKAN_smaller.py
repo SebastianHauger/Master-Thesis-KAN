@@ -61,16 +61,18 @@ class UKAN(nn.Module):
         out = self.encoder1(x)
         t1 = out
         out = F.max_pool2d(out, 2, 2)
-        
+        print(f"t1 {t1.shape}") 
         ### Stage 2
         out = self.encoder2(out)
         t2 = out
         out = F.max_pool2d(out, 2, 2)
+        print(f"t2 {t2.shape}") 
     
         ### Stage 3
         out = self.encoder3(out)
         t3 = out
         # out = F.max_pool2d(out, 2, 2)  
+        print(f"t3 {t3.shape}") 
 
         ### Stage 4 - KAN encoder 
         out, H, W = self.patch_embed3(out)
@@ -79,6 +81,7 @@ class UKAN(nn.Module):
         out = self.norm(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         t4 = out
+        print(f"t4 {t4.shape}") 
 
         ### Bottleneck
         out, H, W = self.patch_embed4(out)
@@ -86,6 +89,7 @@ class UKAN(nn.Module):
         out = self.norm_bottle(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous() # returns to original dimension
         out = self.inv_patch_embed4(out)
+        print(f"shape adter bottleneck {out.shape}") 
         
         ### Stage 4-- Kan decoder 
         out = torch.cat((out, t4), 1)
@@ -93,6 +97,7 @@ class UKAN(nn.Module):
         out = out.flatten(2).transpose(1,2)
         out = self.dblock(out, H, W)
         out = self.dnorm(out)
+        print(f"shape adter 1 KAN dec {out.shape}") 
         
         
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
@@ -102,16 +107,19 @@ class UKAN(nn.Module):
         out = torch.cat((out, t3), 1)
         out = self.decoder3(out)
         
+        print(f"shape adter 1 dec {out.shape}") 
+        
         # Stage 2 -- decoder 
         out = self.upsample2(out)
         out = torch.cat((out,t2), 1)
         out = self.decoder2(out)
         
+        print(f"shape adter 2 dec {out.shape}")  
         # Stage 1 -- decoder 
         out = self.upsample1(out)
         out = torch.cat((out,t1), 1)
         out = self.decoder1(out)
-        
+        print(f"shape adter 3 dec {out.shape}") 
         # Final operations
         out = self.final(out)
         out = torch.add(out, x)

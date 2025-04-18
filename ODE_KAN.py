@@ -21,6 +21,12 @@ class KAN(torch.nn.Module):
         super(KAN, self).__init__()
         self.grid_size = grid_size
         self.spline_order = spline_order
+        self.normalizations = torch.nn.ModuleList()
+        for i in range(len(layers_hidden)-2):
+            self.normalizations.append(torch.nn.BatchNorm1d(num_features=layers_hidden[1+i]))
+        
+        self.normalizations.append(torch.nn.Identity())
+            
 
         self.layers = torch.nn.ModuleList()
         for in_features, out_features in zip(layers_hidden, layers_hidden[1:]):
@@ -40,10 +46,10 @@ class KAN(torch.nn.Module):
             )
 
     def forward(self, x: torch.Tensor, update_grid=False):
-        for layer in self.layers:
+        for layer, norm in zip(self.layers, self.normalizations):
             if update_grid:
                 layer.update_grid(x)
-            x = layer(x)
+            x = norm(layer(x)) # added the normalization in order to not update the grid.
         return x
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):

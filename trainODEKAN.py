@@ -184,19 +184,16 @@ class Trainer:
         n = max(n_min, 2)
         batch_size= batch_size
         ds = ODEDataset(self.soln_arr_train, self.t_train, n)
-        dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
+        dL = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=True)
         t_int = self.t_train[:n].float()
         scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer,1., 0.01, num_epochs)
         t = self.t
         # train_weights = torch.exp(-alpha * t_int).unsqueeze(1).unsqueeze(2) # add a deecaying importance
         # print(train_weights.shape)
         
-        self.model(self.soln_arr.float(), update_grid=True)
+        # self.model(self.soln_arr.float(), update_grid=True)
         print(f"batch_size{batch_size}")
         print(f"batch length {n}")
-        
-        
-        self.model(self.soln_arr.float(), update_grid=True)
         
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
             count = 0
@@ -204,13 +201,14 @@ class Trainer:
             t_try = int(n_min + (n_max-n_min)*(epoch/num_epochs)**1.5)
             if t_try > n and self.samples_train % t_try == 0:
                 n = t_try
-                print(f"batch length {n}")
+                # print(f"batch length {n}")
                 batch_size=1 + int(self.samples_train/(n*2))
                 print(f"batch_size{batch_size}")
                 ds = ODEDataset(self.soln_arr_train, self.t_train, n)
                 dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
                 t_int = self.t_train[:n]
             for init_cond, sol in dL:
+                print(init_cond.shape)
                 
                 init_cond = init_cond.float()
                 # print(init_cond.detach())
@@ -360,7 +358,7 @@ if __name__=='__main__':
                       data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
                       checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
                       tf=20, tf_train=16, lr=0.001, 
-                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_10500.pt")
+                      image_folder="images/Lorenz")   #, model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_10500.pt")
     trainer.train(num_epochs=15000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
     
     
