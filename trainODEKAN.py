@@ -163,6 +163,7 @@ class Trainer:
             plt.close('all')
             plt.figure()
             plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
+            plt.grid(True)
             # plt.semilogy(self.epoch_list_test, torch.Tensor(self.loss_list_test), label='test')
             plt.legend()
             plt.xlabel('epoch')
@@ -207,8 +208,9 @@ class Trainer:
                 ds = ODEDataset(self.soln_arr_train, self.t_train, n)
                 dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
                 t_int = self.t_train[:n]
+            self.model.train()
             for init_cond, sol in dL:
-                print(init_cond.shape)
+                # print(init_cond.shape)
                 
                 init_cond = init_cond.float()
                 # print(init_cond.detach())
@@ -250,6 +252,7 @@ class Trainer:
                 # print(f"mean: {loss}") 
                 count += init_cond.shape[0]
             self.loss_list_train.append(loss)
+            self.model.eval()
             if epoch % val_freq ==0 or epoch == self.start_epoch:  # always evaluate the first epoch to avoid crashing..
                 with torch.no_grad():
                     try: 
@@ -287,6 +290,7 @@ class Trainer:
     
     def test_model(self, rollout_lengths=[100]):
         plt.rc('lines', linewidth=0.5)
+        self.model.eval()
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
@@ -350,29 +354,29 @@ if __name__=='__main__':
     
     
     
+    # soln_array, t = get_data_lorenz63()
+    # soln_array = soln_array[2500:,:]
+    # t = t[:-2500]
+    # init_cond = soln_array[0, :] 
+    # trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init_cond=init_cond, 
+    #                   data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
+    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
+    #                   tf=20, tf_train=16, lr=0.001, 
+    #                   image_folder="images/Lorenz")    #, model_path="TrainedModels/ODEKans/Lorenz/1step_train/last.pt")
+    # trainer.train(num_epochs=25000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
+    
+    
+    # # Test different rollout lengths
     soln_array, t = get_data_lorenz63()
     # soln_array = soln_array[2500:,:]
     # t = t[:-2500]
     init_cond = soln_array[0, :] 
-    trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
-                      checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
-                      tf=20, tf_train=16, lr=0.001, 
-                      image_folder="images/Lorenz")   #, model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_10500.pt")
-    trainer.train(num_epochs=15000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
-    
-    
-    # # Test different rollout lengths
-    # soln_array, t = get_data_lorenz63()
-    # # soln_array = soln_array[2500:,:]
-    # # t = t[:-2500]
-    # init_cond = soln_array[0, :] 
-    # trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, 
-    #                   data=soln_array, t=t, plot_F=100,
-    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-    #                   tf=20, tf_train=2.5, lr=0.001, 
-    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/last_4nodes1500.pt")
-    # trainer.test_model([50, 100, 500])
+    trainer = Trainer(n_dims=3, n_hidden=15, grid_size=5, init_cond=init_cond, 
+                      data=soln_array, t=t, plot_F=100,
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+                      tf=20, tf_train=2.5, lr=0.001, 
+                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/checkpoint_3900.pt")
+    trainer.test_model([50, 100, 500])
     
     
     

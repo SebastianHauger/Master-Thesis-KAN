@@ -6,12 +6,12 @@ from the_well.data.datasets import WellMetadata
 
 from main import get_data_helper
 
-
+torch.manual_seed(1)
 data = get_data_helper("train", True)
 # Create the model
 metadata = data.metadata
 # model = UNetClassic(dim_in=3, dim_out=1, dset_metadata=metadata, init_features=32)
-model = UKAN(padding='asym_all')
+model = UKAN(padding='uniform')
 model = model.to("cuda" if torch.cuda.is_available() else "cpu")
 # Create a dummy input
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

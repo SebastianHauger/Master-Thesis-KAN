@@ -14,6 +14,7 @@ import random
 from the_well.benchmark.metrics import VRMSE
 import os
 from UKAN_smaller import UKAN as SmallUKAN
+from itertools import islice
 
 
 PATH_TO_BASE_HOME = "datasets"
@@ -105,9 +106,10 @@ def load_trained_UKAN_ptfile(name,device, KAN):
         checkpoint = torch.load(os.path.join(MODEL_DIR,name), map_location=torch.device('cpu'), weights_only=False)
     else:
         checkpoint = torch.load(os.path.join(MODEL_DIR,name), weights_only=False)
-    # print(checkpoint.keys())
-    # print(checkpoint["validation_loss"])
-    # print(checkpoint["epoch"])
+    print(checkpoint.keys())
+    print(checkpoint["validation_loss"])
+    # print(checkpoint["train_loss"])
+    print(checkpoint["epoch"])
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     return model
@@ -125,9 +127,9 @@ def load_trained_UKAN_pth_file(name, device):
 
 def plot_prediction(model, device, plot_fields, epochs):
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
-    test_loader = DataLoader(test, 1, shuffle=True) 
+    test_loader = DataLoader(test, 1, shuffle=False) 
     with torch.no_grad():
-        batch = next(iter(test_loader))
+        batch = next(islice(test_loader, 400, 401))
         vrmse = VRMSE()
         x = batch["input_fields"]
         x = x.to(device)
@@ -185,13 +187,13 @@ def plot_prediction(model, device, plot_fields, epochs):
             
             
 
-def plot_error_after_n_steps(model, n, device):
+def plot_error_after_n_steps(model, n, device, times, name="Large_UKAN"):
     """"There seems to be an issue with the next step at the moment since x is not y of the 
     previous step..."""
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
     test_loader = DataLoader(test, 1, shuffle=False) # We do not shuffle to be able to see the developement of error.
     with torch.no_grad():
-        batch = next(iter(test_loader))
+        batch = next(islice(test_loader, 400, 401))
         x = batch["input_fields"]
         x = x.to(device)
         x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
@@ -202,7 +204,9 @@ def plot_error_after_n_steps(model, n, device):
         diffxpred = []
         diffypred = []
         mse_grad = []
-        for i, batch in enumerate(test_loader):
+        fields = []
+        plotx = []
+        for i, batch in enumerate(islice(test_loader, 400, 400+n+1)):
             if i != 0:
                 x = model(x)
                 print(f"Diff x pred {(xtr-x).square().mean()}")
@@ -218,36 +222,60 @@ def plot_error_after_n_steps(model, n, device):
                 y = batch["output_fields"]
                 y = y.to(device)
                 y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-            if i == n:
-                break
-        fig, axs = plt.subplots(1,3, figsize=(3 * 5, 2.5))
-        x = x[0].detach().numpy()
-        xtr = xtr[0].detach().numpy()
+                if i in times:
+                    fields.append(xtr[0].detach().numpy())
+                    plotx.append(x[0].detach().numpy())
+                    
+        names = ["Height", "Velocity Theta", "Velocity Phi"]
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
         for field in range(3):
-            diff = np.abs(x[field] - xtr[field])
-            gmax = diff.max()
-            axs[field].imshow(diff, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
-            axs[field].set_xticks([])
-            axs[field].set_yticks([])
-        axs[0].set_title("height")
-        axs[1].set_title("velocity theta")
-        axs[2].set_title("velocity phi")
-        fig.suptitle(f"Difference pred, inp after {n} steps")
-        plt.tight_layout()
-        plt.savefig(f"images/ErrorAfter{n}Steps.pdf", bbox_inches='tight', dpi=200)
-        plt.show()
-        plt.figure()
-        xax = list(range(1, n+1))
-        plt.plot(xax,diffxpred, label="mse(x, yp)")
-        plt.plot(xax,diffypred, label="mse(y, yp)")
-        plt.plot(xax,mse_grad, label="mse(gradient)")
-        plt.ylabel("Error")
-        plt.xlabel("Iteration")
-        plt.title("Autoregressive error of predictor")
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig("images/EvolutionOfError.pdf", bbox_inches='tight', dpi=200)
-        plt.show()
+            fig, axs = plt.subplots(2, len(fields), figsize=(len(fields)*6.1, 6))
+            for i in range(len(fields)):
+                axs[0, i].imshow(plotx[i][field])
+                axs[1, i].imshow(fields[i][field])
+                axs[0, i].set_title(f"t = {times[i]}")
+                axs[0, i].set_xticks([])
+                axs[1, i].set_xticks([])
+                axs[0, i].set_yticks([])
+                axs[1, i].set_yticks([])  
+                
+            axs[0, 0].set_ylabel(f"Pred")
+            axs[1, 0].set_ylabel(f"Truth")
+            fig.suptitle(names[field])
+            plt.tight_layout()
+            fig.savefig(os.path.join(IMAGE_DIR, name+"_rollout.pdf"), dpi=200, bbox_inches='tight')
+            plt.show()
+            
+        
+        
+        # fig, axs = plt.subplots(1,3, figsize=(3 * 5, 2.5))
+        # x = x[0].detach().numpy()
+        # xtr = xtr[0].detach().numpy()
+        # for field in range(3):
+        #     diff = np.abs(x[field] - xtr[field])
+        #     gmax = diff.max()
+        #     axs[field].imshow(diff, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
+        #     axs[field].set_xticks([])
+        #     axs[field].set_yticks([])
+        # axs[0].set_title("height")
+        # axs[1].set_title("velocity theta")
+        # axs[2].set_title("velocity phi")
+        # fig.suptitle(f"Difference pred, inp after {n} steps")
+        # plt.tight_layout()
+        # plt.savefig(f"images/ErrorAfter{n}Steps.pdf", bbox_inches='tight', dpi=200)
+        # plt.show()
+        # plt.figure()
+        # xax = list(range(1, n+1))
+        # plt.plot(xax,diffxpred, label="mse(x, yp)")
+        # plt.plot(xax,diffypred, label="mse(y, yp)")
+        # plt.plot(xax,mse_grad, label="mse(gradient)")
+        # plt.ylabel("Error")
+        # plt.xlabel("Iteration")
+        # plt.title("Autoregressive error of predictor")
+        # plt.legend()
+        # plt.tight_layout()
+        # plt.savefig("images/EvolutionOfError.pdf", bbox_inches='tight', dpi=200)
+        # plt.show()
     
             
 def get_num_trainable_parameters(model):
@@ -258,12 +286,12 @@ def get_num_trainable_parameters(model):
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = UNetClassic(3, 3, )
-    model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
+    # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
     # model = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
-    # model = load_trained_UKAN_ptfile("best.pt", device, KAN=True)
+    model = load_trained_UKAN_ptfile("recent.pt", device, KAN=True)
     # model = SmallUKAN(padding='asym_all')
     # print(get_num_trainable_parameters(model))
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    # plot_prediction(model, device, True, epochs="50")
-    # plot_error_after_n_steps(model, 10, device)
+    # plot_prediction(model, device, False, epochs="50")
+    plot_error_after_n_steps(model, 10, device, [1, 10, 50, 100, 200])
