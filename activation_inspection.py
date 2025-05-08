@@ -61,7 +61,7 @@ def plot_activations(kan):
 
 if __name__ == '__main__':
     model = KAN(layers_hidden=[3, 6, 3], grid_size=5, normalize=True)
-    trained = torch.load("TrainedModels/ODEKans/Lorenz/1step_train/last.pt")
+    trained = torch.load("TrainedModels/ODEKans/Lorenz/MODEL_6nodes_IR.pt")
     model.load_state_dict(trained["model_state_dict"])
     plot_activations(model)
     

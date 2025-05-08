@@ -37,7 +37,7 @@ def get_vals():
     
 
 
-def plot_data(t, ts):
+def plot_data(t, ts, name):
     fig, axarr = plt.subplots(ts.shape[1], 1, sharex=True)
     print(ts.shape)
     labels=["x", "y", "z"]    # maximum three labels
@@ -45,25 +45,27 @@ def plot_data(t, ts):
         ax.plot(t, ts[:, i], color='black', lw=0.5)
         ax.set_ylabel(labels[i])
     ax.set_xlabel("time [s]")
+    fig.suptitle(name)
+    plt.savefig('images/lorenz/ts'+name+".pdf", dpi=200)
     plt.show()
     
     
 
-def gen_and_save_data():
+def gen_and_save_data(filename):
     t, input_lorenz = get_vals()
     ts = lorenz(t, 
                 init_state=np.array([input_lorenz["x_init"], input_lorenz["y_init"], input_lorenz["z_init"]]), 
                 params=np.array([input_lorenz["rho"], input_lorenz["beta"], input_lorenz["sigma"]]))
     data = np.concatenate((t[:, np.newaxis], ts), axis=1)
     print(data.shape)
-    np.savetxt("Results/results_lorenz/truth.dat", data, delimiter=' ', fmt='%f')
+    np.savetxt("Results/results_lorenz/"+filename, data, delimiter=' ', fmt='%f')
     
 
 if __name__=='__main__':
-    gen_and_save_data()
-    ts, t = get_data_lorenz63()
+    gen_and_save_data("difficult.dat")
+    ts, t = get_data_lorenz63(test=True, harder_test=True)
     # print(ts[25000,:])
-    plot_data(t, ts)
+    plot_data(t, ts, name="HARDtest")
     
     
     

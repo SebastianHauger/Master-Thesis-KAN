@@ -38,10 +38,41 @@ def gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t):
     return soln_arr, t
 
 
-def get_data_lorenz63():
+def plot_train_cycles(models, dims, labels, colors):
+    plt.figure()
+    soln_array, t = get_data_lorenz63(test=True, harder_test=True)
+    
+    init_cond = soln_array[0, :] 
+    
+    for model, dim, label, color in zip(models, dims, labels, colors):
+        tr = Trainer(n_dims=3, n_hidden=dim, grid_size=5, init_cond=init_cond, 
+                      data=soln_array, t=t, plot_F=100,
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+                      tf=20, tf_train=2.5, lr=0.001, 
+                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/"+model, normalize=True)
+        plt.semilogy(tr.loss_list_train, label=label, color=color, linewidth=0.5, alpha=.8)
+    plt.legend(loc="lower center", ncols=4)
+    plt.title("Training loss", fontsize=18)
+    plt.xlabel("epoch", fontsize=16)
+    plt.ylabel("MSE", fontsize=16)
+    plt.savefig("images/Lorenz/optimal/LOSS_ODEKAN.pdf", dpi=200, bbox_inches="tight")
+    plt.show() 
+
+
+def get_data_lorenz63(test=False, harder_test=False):
     states = np.loadtxt("Results/results_lorenz/truth.dat")
     t = states[:, 0]
     soln_arr = states[:, 1:]
+    if test:
+        if harder_test:
+            test_states = np.loadtxt("Results/results_lorenz/difficult.dat")
+        else:
+            test_states = np.loadtxt("Results/results_lorenz/test.dat")
+        soln_arr_test = test_states[:, 1:]
+        for i in range(3):
+            soln_arr_test[:,i] = (soln_arr_test[:,i]-soln_arr[:,i].mean())/soln_arr[:,i].std()
+        return soln_arr_test, t
+        
     for i in range(3):
         soln_arr[:,i] = (soln_arr[:,i]-soln_arr[:,i].mean())/soln_arr[:,i].std()
     return soln_arr, t
@@ -54,7 +85,7 @@ class ODEDataset(Dataset):
         self.batch_length = batch_length
         if overlap:
             indexes1 = np.arange(0, len(data), batch_length)
-            indexes2 = np.arange(batch_length//2, len(data), len(data)-1)
+            indexes2 = np.arange(batch_length//2, len(data)-batch_length, batch_length)
             self.start_indexes = np.concatenate((indexes1, indexes2), axis=0)
         else:
             self.start_indexes = np.arange(0, len(data), batch_length) 
@@ -79,7 +110,7 @@ class ODEDataset(Dataset):
 
 class Trainer:
     def __init__(self, n_dims, n_hidden=10, grid_size=5, init_cond=np.array([1,1]), data=None, plot_F=100, tf=14, tf_train=3.5,
-                 lr = 2e-3, t=None, model_path="", checkpoint_folder="", checkpoint_freq=100, image_folder=""):
+                 lr = 2e-3, t=None, model_path="", checkpoint_folder="", checkpoint_freq=100, image_folder="", normalize=False):
         self.plot_freq = plot_F
         self.cp_freq = checkpoint_freq
         self.tf = tf  # time frame to be used (from zero to this time) 
@@ -93,7 +124,7 @@ class Trainer:
          
         
         self.lr = lr     
-        self.model = KAN(layers_hidden=[n_dims,n_hidden,n_dims], grid_size=grid_size) #k is order of piecewise polynomial
+        self.model = KAN(layers_hidden=[n_dims,n_hidden,n_dims], grid_size=grid_size, normalize=normalize) #k is order of piecewise polynomial
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.loss_list_train=[]
         self.loss_list_test=[]
@@ -171,7 +202,7 @@ class Trainer:
             plt.savefig(os.path.join(self.im_f, "loss.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
         plt.close('all')  
            
-    def train(self, num_epochs=10000, val_freq=10, batch_size=16, batch_length=100, n_min=2, n_max=10):
+    def train(self, num_epochs=10000, val_freq=10, batch_size=16, n_min=2, n_max=10):
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
@@ -183,12 +214,12 @@ class Trainer:
         p4 = self.model.layers[1].base_weight
         print(self.soln_arr_train.shape)
         n = max(n_min, 2)
-        batch_size= batch_size
-        ds = ODEDataset(self.soln_arr_train, self.t_train, n)
+        ds = ODEDataset(self.soln_arr, self.t_train, n)
+        print(len(ds))
         dL = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=True)
-        t_int = self.t_train[:n].float()
+        t_int = self.t_train[:n]
         scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer,1., 0.01, num_epochs)
-        t = self.t
+        # t = self.t
         # train_weights = torch.exp(-alpha * t_int).unsqueeze(1).unsqueeze(2) # add a deecaying importance
         # print(train_weights.shape)
         
@@ -202,54 +233,24 @@ class Trainer:
             t_try = int(n_min + (n_max-n_min)*(epoch/num_epochs)**1.5)
             if t_try > n and self.samples_train % t_try == 0:
                 n = t_try
+               
                 # print(f"batch length {n}")
-                batch_size=1 + int(self.samples_train/(n*2))
-                print(f"batch_size{batch_size}")
-                ds = ODEDataset(self.soln_arr_train, self.t_train, n)
-                dL = DataLoader(ds, batch_size=batch_size, shuffle=True)
+                # batch_size = int(batch_size//(n/n_min))
+                print(f"RL={n}, batch size ={batch_size}")
+                ds = ODEDataset(self.soln_arr, self.t_train, n)
+                print(len(ds))
+                dL = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=True)
                 t_int = self.t_train[:n]
             self.model.train()
             for init_cond, sol in dL:
-                # print(init_cond.shape)
-                
                 init_cond = init_cond.float()
-                # print(init_cond.detach())
                 sol = sol.float()
-                # print(t_int.detach())
-                # print(sol.detach())
-                # raise RuntimeError 
-                # raise RuntimeError(" Stop here ")
-                pred=torchodeint(calDeriv, init_cond, t_int, adjoint_params=[p1, p2, p3, p4], rtol=1e-5, atol=1e-7, method='dopri5')
-                
-                # predp = pred.detach().numpy()
-                # solp = sol.detach().numpy()
-                # predp = np.reshape(predp, (18, 2)) 
-                # solp = np.reshape(solp, (,2))
-                # plt.figure()
-                # for i in range(batch_size):
-                #     for j in range(2):
-                #         plt.plot(t_int, predp[:, i, j], label="pred")
-                #         plt.plot(t_int, solp[i,:, j], label="sol")
-                # plt.legend()
-                # plt.show()
-                # print((pred[:, 0, :]-sol).size())
-                # print((pred.shape))
-                # print((sol.shape))
-                # print(pred.detach())
-                # print(self.soln_arr_train[i_start:i_start+batch_size, :].shape)
-                
+                pred=torchodeint(calDeriv, init_cond, t_int, adjoint_params=[p1, p2, p3, p4], rtol=1e-5, atol=1e-7, method='dopri5') 
                 diff=(pred-sol.transpose(0,1))
                 loss_train = torch.mean(torch.square(diff))
-                
-                # print(f"loss: {loss_train.detach().item()}")
-                
-                # print(loss_train)
-                # loss_train.retain_grad()
                 loss_train.backward()
                 self.optimizer.step()
-                # print(init_cond.shape[0])
                 loss = (loss*count + init_cond.shape[0]*loss_train.detach().item())/(count+init_cond.shape[0])
-                # print(f"mean: {loss}") 
                 count += init_cond.shape[0]
             self.loss_list_train.append(loss)
             self.model.eval()
@@ -288,7 +289,7 @@ class Trainer:
         self.plotter(pred_test[:,0,:], epoch, t, False)
     
     
-    def test_model(self, rollout_lengths=[100]):
+    def test_model(self, rollout_lengths=[100], model_name="MODEL", title="Title"):
         plt.rc('lines', linewidth=0.5)
         self.model.eval()
         def calDeriv(t, X):
@@ -300,24 +301,36 @@ class Trainer:
         fig, axarr = plt.subplots(self.soln_arr.shape[1], 1, sharex=True)
         with torch.no_grad():
             for j,batch_length in enumerate(rollout_lengths):
-                print(batch_length)
+                # print(batch_length)
                 ds = ODEDataset(self.soln_arr, self.t, batch_length, False)
                 dL = DataLoader(ds, 1, False)
                 t = self.t[:batch_length]
                 prediction = None
-                for init_cond,_ in dL:
+                for init_cond, sol in dL:
                     init_cond = init_cond.float()
                     pred = torchodeint(calDeriv, init_cond, t, adjoint_params=[], method='dopri5')
                     pred = pred[:,0,:].detach().numpy()
+                    zpe= sol[0, :, :].detach().numpy()-init_cond.detach().numpy()
                     if prediction is None:
                         prediction = pred
+                        zero_pred_error = zpe
                     else:
                         prediction = np.concatenate((prediction, pred), axis=0)
+                        # print(zpe.shape)
+                        zero_pred_error = np.concatenate((zero_pred_error, zpe), axis=0)
+                    
                 for i in range(self.soln_arr.shape[1]):
                     axarr[i].plot(self.t.numpy(), prediction[:,i], linestyle='dashed', color=colors[j], label=f"_nolabel_")
+                    print(f"mse channgel {i}, RL={batch_length} is given by {np.square(prediction[:,i]-self.soln_arr[:,i].detach().numpy()).mean()}")
+                    print(f"comparisson to zero gradient channel {i}, RL={batch_length} is {np.square(zero_pred_error[:, i]).mean()} ")
+        ylabs = ["x", "y", "z"]
         for i in range(self.soln_arr.shape[1]):
-            axarr[i].plot(self.t.numpy(), self.soln_arr[:,i].detach().numpy(), color="black", label="_nolabel_")
+            sarr = self.soln_arr[:,i].detach().numpy()
+            axarr[i].plot(self.t.numpy(), sarr, color="black", label="_nolabel_")
             axarr[i].set_ylim(self.plot_lims[i])
+            axarr[i].set_ylabel(ylabs[i])
+        
+        fig.supxlabel("time [s]")
         
         
         
@@ -325,9 +338,15 @@ class Trainer:
         labels = [f"RL={rl}" for rl in rollout_lengths]
         labels.append("Truth")
         lines.append(Line2D([0], [0], color="black"))
-        axarr[0].legend(lines, labels, loc="upper center", bbox_to_anchor=(0.5, 1.30), ncol=2)
+        axarr[0].legend(lines, labels, loc="upper center", bbox_to_anchor=(0.5, 1.30), ncol=4)
+        fig.suptitle("Test loss. " + title)
         plt.tight_layout()
+        fig.savefig("images/Lorenz/optimal/"+model_name+"test_error.pdf", dpi=200, bbox_inches="tight")
         plt.show()
+    
+    
+
+        
         
 
 
@@ -355,28 +374,31 @@ if __name__=='__main__':
     
     
     # soln_array, t = get_data_lorenz63()
-    # soln_array = soln_array[2500:,:]
-    # t = t[:-2500]
     # init_cond = soln_array[0, :] 
     # trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init_cond=init_cond, 
     #                   data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
     #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
     #                   tf=20, tf_train=16, lr=0.001, 
-    #                   image_folder="images/Lorenz")    #, model_path="TrainedModels/ODEKans/Lorenz/1step_train/last.pt")
-    # trainer.train(num_epochs=25000, val_freq=100, batch_size=64, batch_length=100, n_min=2, n_max=2)
+    #                   image_folder="images/Lorenz", normalize=True) #  model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_1000.pt")
+    # trainer.train(num_epochs=10000, val_freq=10, batch_size=128, n_min=2, n_max=6)
     
     
-    # # Test different rollout lengths
-    soln_array, t = get_data_lorenz63()
-    # soln_array = soln_array[2500:,:]
-    # t = t[:-2500]
-    init_cond = soln_array[0, :] 
-    trainer = Trainer(n_dims=3, n_hidden=15, grid_size=5, init_cond=init_cond, 
-                      data=soln_array, t=t, plot_F=100,
-                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-                      tf=20, tf_train=2.5, lr=0.001, 
-                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/checkpoint_3900.pt")
-    trainer.test_model([50, 100, 500])
+    # Test different rollout lengths
+    # soln_array, t = get_data_lorenz63(test=True, harder_test=True)
+    
+    # init_cond = soln_array[0, :] 
+    # trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init
+    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+    #                   tf=20, tf_train=2.5, lr=0.001, 
+    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/MODEL_6nodes_IR.pt", normalize=True)
+    # trainer.test_model([50, 100, 500], model_name="MODEL6_IR_hard", title="6 hidden IR")
+
+    
+    models = ["1step_train/MODEL6NODES.pt", "1step_train/MODEL4NODES.pt", "MODEL_6nodes_IR.pt", "MODEL_4nodes_IR.pt"]
+    dims = [6, 4, 6, 4]
+    labels = ["6 hidden CR", "4 hidden CR", "6 hidden IR", "4 hidden IR"]
+    colors = ["r", "k", "lightcoral", "grey",]
+    plot_train_cycles(models, dims, labels, colors)
     
     
     

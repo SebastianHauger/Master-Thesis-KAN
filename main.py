@@ -5,7 +5,7 @@ from new_UKAN_proposal import UKAN
 from the_well.data import WellDataset, WellDataModule
 from UNET_classic import UNetClassic
 from tqdm import tqdm 
-from data import get_dataset
+from data import get_dataset, get_datamodule
 from einops import rearrange
 import torch
 import matplotlib.pyplot as plt
@@ -95,10 +95,13 @@ def test_model(model, device, bs=64, home=False):
         print(f"vrmse test set: {vrmse}")
             
             
-def load_trained_UKAN_ptfile(name,device, KAN):
+def load_trained_UKAN_ptfile(name,device, KAN, large=True):
     """assuming model has been trained with cuda."""
     if KAN:
-        model = UKAN(padding="asym_all")
+        if large:
+            model = UKAN(padding="asym_all")
+        else:
+            model = SmallUKAN(padding='uniform')
     else:
         dataset = get_dataset("train", PATH_TO_BASE_HOME, True)
         model = UNetClassic(3, 3, dataset.metadata)
@@ -187,63 +190,82 @@ def plot_prediction(model, device, plot_fields, epochs):
             
             
 
-def plot_error_after_n_steps(model, n, device, times, name="Large_UKAN"):
+def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Large_UKAN_"):
     """"There seems to be an issue with the next step at the moment since x is not y of the 
     previous step..."""
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
     test_loader = DataLoader(test, 1, shuffle=False) # We do not shuffle to be able to see the developement of error.
     with torch.no_grad():
         batch = next(islice(test_loader, 400, 401))
-        x = batch["input_fields"]
-        x = x.to(device)
-        x = rearrange(x, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
+        x1 = batch["input_fields"]
+        x1 = x1.to(device)
+        x1 = rearrange(x1, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
         y = batch["output_fields"]
         y = y.to(device)
         y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly") 
-        xtr = x
+        xtr = x1
         diffxpred = []
         diffypred = []
         mse_grad = []
         fields = []
-        plotx = []
+        plotx1 = []
+        plotx2 = []
+        plotx3 = []
+        x2 = x1
+        x3 = x1
+     
+        
         for i, batch in enumerate(islice(test_loader, 400, 400+n+1)):
             if i != 0:
-                x = model(x)
-                print(f"Diff x pred {(xtr-x).square().mean()}")
+                x1 = model1(x1)
+                x2 = model2(x2)
+                x3 = model3(x3)
+                print(f"Diff x pred {(xtr-x1).square().mean()}")
                 mse_grad.append((xtr-y).square().mean().detach().item())
-                diffxpred.append((xtr-x).square().mean().detach().item())
+                diffxpred.append((xtr-x1).square().mean().detach().item())
                 xtr = batch["input_fields"]
                 xtr = xtr.to(device)
                 xtr = rearrange(xtr, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-                diffypred.append((xtr-x).square().mean().detach().item())
+                diffypred.append((xtr-x1).square().mean().detach().item())
                 print(f"diff should be zero {(y-xtr).square().mean()}")
-                print(f"error out after {i+1} steps {(y-x).square().mean()}")
-                print(f"error after {i+1} steps: {(xtr-x).square().mean()}")
+                print(f"error out after {i+1} steps {(y-x1).square().mean()}")
+                print(f"error after {i+1} steps: {(xtr-x1).square().mean()}")
                 y = batch["output_fields"]
                 y = y.to(device)
                 y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
                 if i in times:
                     fields.append(xtr[0].detach().numpy())
-                    plotx.append(x[0].detach().numpy())
+                    plotx1.append(x1[0].detach().numpy())
+                    plotx2.append(x2[0].detach().numpy())
+                    plotx3.append(x3[0].detach().numpy())
+                    
                     
         names = ["Height", "Velocity Theta", "Velocity Phi"]
+        name_F = ["height", "vel_t", "vel_p"] 
         # plt.subplots_adjust(wspace=0.1, hspace=0.1)
         for field in range(3):
-            fig, axs = plt.subplots(2, len(fields), figsize=(len(fields)*6.1, 6))
+            fig, axs = plt.subplots(4, len(fields), figsize=(len(fields)*6.1, 13.2))
             for i in range(len(fields)):
-                axs[0, i].imshow(plotx[i][field])
-                axs[1, i].imshow(fields[i][field])
-                axs[0, i].set_title(f"t = {times[i]}")
-                axs[0, i].set_xticks([])
-                axs[1, i].set_xticks([])
+                axs[0, i].imshow(plotx1[i][field], cmap='RdBu_r', interpolation=None)
+                axs[1, i].imshow(plotx2[i][field], cmap='RdBu_r', interpolation=None)
+                axs[2, i].imshow(plotx3[i][field], cmap='RdBu_r', interpolation=None)
+                axs[3, i].imshow(fields[i][field], cmap='RdBu_r', interpolation=None)
+                for j in range(4):
+                    axs[j, i].set_xticks([])
+                    axs[j, i].set_yticks([])
+                    
+                axs[0, i].set_title(f"t = {times[i]}", fontsize=22)
+                
                 axs[0, i].set_yticks([])
                 axs[1, i].set_yticks([])  
                 
-            axs[0, 0].set_ylabel(f"Pred")
-            axs[1, 0].set_ylabel(f"Truth")
-            fig.suptitle(names[field])
+            axs[0, 0].set_ylabel(f"S UKAN", fontsize=22)
+            axs[1, 0].set_ylabel(f"UNet", fontsize=22)
+            axs[2, 0].set_ylabel(f"L UKAN", fontsize=22)
+            axs[3, 0].set_ylabel(f"GT", fontsize=22)
+            fig.suptitle(names[field], fontsize=26)
             plt.tight_layout()
-            fig.savefig(os.path.join(IMAGE_DIR, name+"_rollout.pdf"), dpi=200, bbox_inches='tight')
+            fig.savefig(os.path.join(IMAGE_DIR, name+name_F[field]+"_rollout.pdf"), dpi=200, bbox_inches='tight')
             plt.show()
             
         
@@ -280,18 +302,19 @@ def plot_error_after_n_steps(model, n, device, times, name="Large_UKAN"):
             
 def get_num_trainable_parameters(model):
     # get the number of trainable parameters. 
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)            
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)  
 
 
 if __name__=='__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # model = UNetClassic(3, 3, )
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
-    # model = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
-    model = load_trained_UKAN_ptfile("recent.pt", device, KAN=True)
+    unet = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
+    large_ukan = load_trained_UKAN_ptfile("recent.pt", device, KAN=True)
+    small_ukan = load_trained_UKAN_ptfile("recent_UKAN_small.pt", device, KAN=True, large=False)
     # model = SmallUKAN(padding='asym_all')
     # print(get_num_trainable_parameters(model))
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
     # plot_prediction(model, device, False, epochs="50")
-    plot_error_after_n_steps(model, 10, device, [1, 10, 50, 100, 200])
+    plot_error_after_n_steps(small_ukan, unet, large_ukan, 400, device, [25, 100 , 200, 400], "comparrison_")

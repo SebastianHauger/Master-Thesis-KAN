@@ -44,7 +44,7 @@ def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True, 
             well_dataset_name="planetswe",
             batch_size=batch_size, 
             use_normalization=normalize, 
-            max_rollout_steps=5, 
+            max_rollout_steps=max_rollout_steps, 
             exclude_filters=filters
         )
     else: 
@@ -53,7 +53,7 @@ def get_datamodule(path_to_repo, batch_size, max_rollout_steps, normalize=True, 
             well_dataset_name="planetswe",
             batch_size=batch_size, 
             use_normalization=normalize, 
-            max_rollout_steps=5
+            max_rollout_steps=max_rollout_steps
             )  
     return dm 
 

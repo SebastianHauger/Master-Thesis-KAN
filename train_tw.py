@@ -25,7 +25,7 @@ INFO = {
         "cp_freq": 5, 
         "val_freq": 2, 
         "rollout_val_freq": 5,
-        "max_rollout_steps": 1, 
+        "max_rollout_steps": 1000, 
         "short_validation_length": 20, 
         "num_time_intervals": 1,
         "ptb": "/mimer/NOBACKUP/groups/shallow_ukan/datasets",
@@ -127,7 +127,8 @@ def train_and_eval(checkpoint_folder, artifact_folder, viz_folder, formatter,
                  is_distributed=False, 
                  checkpoint_path=checkpoint_path
                  )
-    tr.train()
+    # tr.train()
+    tr.validate()
     wandb.finish()
 
 
