@@ -11,7 +11,7 @@ class KAN(torch.nn.Module):
         layers_hidden,
         grid_size=5,
         spline_order=3,
-        scale_noise=0.1,
+        scale_noise=0.01,
         scale_base=1.0,
         scale_spline=1.0,
         base_activation=torch.nn.SiLU,
@@ -25,7 +25,7 @@ class KAN(torch.nn.Module):
         self.normalizations = torch.nn.ModuleList()
         if normalize:
             for i in range(len(layers_hidden)-2):
-                self.normalizations.append(torch.nn.BatchNorm1d(num_features=layers_hidden[1+i]))
+                self.normalizations.append(torch.nn.BatchNorm1d(layers_hidden[i+1]))
             self.normalizations.append(torch.nn.Identity())
         else: 
             for i in range(len(layers_hidden)-1):
@@ -47,6 +47,7 @@ class KAN(torch.nn.Module):
                     base_activation=base_activation,
                     grid_eps=grid_eps,
                     grid_range=grid_range,
+                    enable_standalone_scale_spline=False
                 )
             )
 
@@ -54,7 +55,8 @@ class KAN(torch.nn.Module):
         for layer, norm in zip(self.layers, self.normalizations):
             if update_grid:
                 layer.update_grid(x)
-            x = norm(layer(x)) 
+            x = layer(x)
+            x = norm(x) 
         return x
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):

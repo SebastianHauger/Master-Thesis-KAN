@@ -51,23 +51,20 @@ def plot_train_cycles(models, dims, labels, colors):
                       tf=20, tf_train=2.5, lr=0.001, 
                       image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/"+model, normalize=True)
         plt.semilogy(tr.loss_list_train, label=label, color=color, linewidth=0.5, alpha=.8)
-    plt.legend(loc="lower center", ncols=4)
-    plt.title("Training loss", fontsize=18)
-    plt.xlabel("epoch", fontsize=16)
-    plt.ylabel("MSE", fontsize=16)
+    plt.legend(loc="best", ncols=2, fontsize=14)
+    plt.title("Training loss", fontsize=16)
+    plt.xlabel("epoch", fontsize=14)
+    plt.ylabel("MSE", fontsize=14)
     plt.savefig("images/Lorenz/optimal/LOSS_ODEKAN.pdf", dpi=200, bbox_inches="tight")
     plt.show() 
 
 
-def get_data_lorenz63(test=False, harder_test=False):
+def get_data_lorenz63(test=False, name="test.dat"):
     states = np.loadtxt("Results/results_lorenz/truth.dat")
     t = states[:, 0]
     soln_arr = states[:, 1:]
     if test:
-        if harder_test:
-            test_states = np.loadtxt("Results/results_lorenz/difficult.dat")
-        else:
-            test_states = np.loadtxt("Results/results_lorenz/test.dat")
+        test_states = np.loadtxt("Results/results_lorenz/"+name)
         soln_arr_test = test_states[:, 1:]
         for i in range(3):
             soln_arr_test[:,i] = (soln_arr_test[:,i]-soln_arr[:,i].mean())/soln_arr[:,i].std()
@@ -109,7 +106,7 @@ class ODEDataset(Dataset):
 
 
 class Trainer:
-    def __init__(self, n_dims, n_hidden=10, grid_size=5, init_cond=np.array([1,1]), data=None, plot_F=100, tf=14, tf_train=3.5,
+    def __init__(self, n_dims, n_hidden=10, grid_size=5, init_cond=np.array([1,1]), data=None, valid=None, plot_F=100, tf=14, tf_train=3.5,
                  lr = 2e-3, t=None, model_path="", checkpoint_folder="", checkpoint_freq=100, image_folder="", normalize=False):
         self.plot_freq = plot_F
         self.cp_freq = checkpoint_freq
@@ -121,23 +118,35 @@ class Trainer:
         
         self.plot_lims = [(data[:, i].min(), data[:, i].max()) for i in range(data.shape[1])]
     
-         
         
         self.lr = lr     
         self.model = KAN(layers_hidden=[n_dims,n_hidden,n_dims], grid_size=grid_size, normalize=normalize) #k is order of piecewise polynomial
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        p1 = self.model.layers[0].spline_weight
+        p2 = self.model.layers[0].base_weight
+        p3 = self.model.layers[1].spline_weight
+        p4 = self.model.layers[1].base_weight
+        p5 = self.model.normalizations[0].bias 
+        p6 = self.model.normalizations[0].weight
+        self.parameters = [p1, p2, p3, p4, p5, p6]
+        self.optimizer = torch.optim.Adam(self.parameters, lr)
         self.loss_list_train=[]
-        self.loss_list_test=[]
+        self.loss_list_valid=[]
         self.loss_min = 1e10
         self.start_epoch = 0
-        self.epoch_list_test = []
+        self.epoch_list_valid = []
         if model_path != "":
             self.load_checkpoint(model_path)
+        
+        self.valid=None
+        if valid is not None:
+            self.valid = torch.tensor(valid)
+        
+            
     
         self.init_cond = torch.unsqueeze((torch.Tensor(np.transpose(init_cond))), 0)
-        self.init_cond.requires_grad=True
+        self.init_cond.requires_grad=False
         self.soln_arr=torch.tensor(data)
-        self.soln_arr.requires_grad=True
+        self.soln_arr.requires_grad=False
         self.soln_arr_train=self.soln_arr[:self.samples_train, :]
         self.t=torch.tensor(t)
         self.t_train =torch.tensor(np.linspace(0, tf_train, self.samples_train))
@@ -153,10 +162,11 @@ class Trainer:
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.loss_min = checkpoint["loss_min"]
-        self.loss_list_test = checkpoint["loss_list_test"]
+        self.loss_list_valid = checkpoint["loss_list_test"]
         self.loss_list_train = checkpoint["loss_list_train"]
-        self.start_epoch = checkpoint["start_epoch"]
-        self.epoch_list_test = checkpoint["epoch_list_test"]
+        self.start_epoch = checkpoint["start_epoch"]-1
+        self.epoch_list_valid = checkpoint["epoch_list_test"]
+        
          
     def save_checkpoint(self,epoch, path):
         torch.save(
@@ -165,12 +175,13 @@ class Trainer:
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "loss_min": self.loss_min,
-            "loss_list_test": self.loss_list_test,
+            "loss_list_test": self.loss_list_valid,
             "loss_list_train": self.loss_list_train,
-            "epoch_list_test": self.epoch_list_test
+            "epoch_list_test": self.epoch_list_valid
             },
             path,  
         )
+    
         
     def plotter(self, pred, epoch, t, optimal=False):
     #callback plotter during training, plots current solution
@@ -194,31 +205,34 @@ class Trainer:
             plt.close('all')
             plt.figure()
             plt.semilogy(torch.Tensor(self.loss_list_train), label='train')
-            plt.grid(True)
-            # plt.semilogy(self.epoch_list_test, torch.Tensor(self.loss_list_test), label='test')
+            plt.grid(True, which='both')
+            plt.semilogy(self.epoch_list_valid, torch.Tensor(self.loss_list_valid), label='valid')
             plt.legend()
             plt.xlabel('epoch')
             plt.ylabel('loss')
             plt.savefig(os.path.join(self.im_f, "loss.pdf"), dpi=200, facecolor="w", edgecolor="w", orientation="portrait")
+            plt.legend()
         plt.close('all')  
            
-    def train(self, num_epochs=10000, val_freq=10, batch_size=16, n_min=2, n_max=10):
+    def train(self, num_epochs=10000, val_freq=10, batch_size=16, n_min=2, n_max=10, val_len=10):
         def calDeriv(t, X):
             dXdt=self.model(X)
             return dXdt
         last = -1
         pred_test=None
-        p1 = self.model.layers[0].spline_weight
-        p2 = self.model.layers[0].base_weight
-        p3 = self.model.layers[1].spline_weight
-        p4 = self.model.layers[1].base_weight
+       
+        # self.optimizer = torch.optim.Adam(params=[p1, p2, p3, p4], lr=0.001)
         print(self.soln_arr_train.shape)
         n = max(n_min, 2)
         ds = ODEDataset(self.soln_arr, self.t_train, n)
         print(len(ds))
         dL = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=True)
         t_int = self.t_train[:n]
-        scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer,1., 0.01, num_epochs)
+        scheduler = torch.optim.lr_scheduler.LinearLR(self.optimizer,1., 0.1, num_epochs)
+        if self.valid is not None:
+            ds_valid = ODEDataset(self.valid, self.t_train, val_len)
+            dL_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=True, drop_last=False)
+            t_int_valid= self.t[:val_len]
         # t = self.t
         # train_weights = torch.exp(-alpha * t_int).unsqueeze(1).unsqueeze(2) # add a deecaying importance
         # print(train_weights.shape)
@@ -226,58 +240,79 @@ class Trainer:
         # self.model(self.soln_arr.float(), update_grid=True)
         print(f"batch_size{batch_size}")
         print(f"batch length {n}")
+        for name, param in self.model.named_parameters():
+            if 'spline_weight' in name:
+                print(f"{name}: weight norm = {param.data.norm().item():.4e}")
         
         for epoch in (bar := tqdm(range(self.start_epoch, num_epochs))):
             count = 0
             loss = 0
-            t_try = int(n_min + (n_max-n_min)*(epoch/num_epochs)**1.5)
-            if t_try > n and self.samples_train % t_try == 0:
-                n = t_try
-               
-                # print(f"batch length {n}")
-                # batch_size = int(batch_size//(n/n_min))
+            sum_loss = 0
+            if epoch % 1000 == 0:
+                a = int(round(n_min + (n_max-n_min)*(epoch/num_epochs)**1.5))
+                n = a if self.samples % a == 0 else n
                 print(f"RL={n}, batch size ={batch_size}")
                 ds = ODEDataset(self.soln_arr, self.t_train, n)
                 print(len(ds))
                 dL = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=True)
                 t_int = self.t_train[:n]
+
             self.model.train()
             for init_cond, sol in dL:
                 init_cond = init_cond.float()
                 sol = sol.float()
-                pred=torchodeint(calDeriv, init_cond, t_int, adjoint_params=[p1, p2, p3, p4], rtol=1e-5, atol=1e-7, method='dopri5') 
-                diff=(pred-sol.transpose(0,1))
-                loss_train = torch.mean(torch.square(diff))
+                pred=torchodeint(calDeriv, init_cond, t_int, adjoint_params=self.parameters, rtol=1e-5, atol=1e-7, method='dopri5') 
+                diff=torch.square((pred-sol.transpose(0,1))[1:,:,:])   # remove zero prediction
+                loss_train = torch.mean(diff)
+                sum_loss +=diff.sum().detach().item()
+                # loss_reg = self.model.regularization_loss(regularize_activation=0, regularize_entropy=0.0001)
+                # loss_train += loss_reg  # might help with the generalization
+                self.optimizer.zero_grad()
                 loss_train.backward()
                 self.optimizer.step()
-                loss = (loss*count + init_cond.shape[0]*loss_train.detach().item())/(count+init_cond.shape[0])
-                count += init_cond.shape[0]
+                
+                count += diff.numel()
+            loss = sum_loss/count
             self.loss_list_train.append(loss)
+            # if epoch==10:
+            #     break
             self.model.eval()
+            
             if epoch % val_freq ==0 or epoch == self.start_epoch:  # always evaluate the first epoch to avoid crashing..
+                for name, parameter in self.model.named_parameters():
+                    print(name)
+                    print(parameter.grad)
+                    print(parameter.requires_grad)
+                    print(parameter.data)
+                if self.valid is not None:
+                    for init_cond, sol in dL_valid:
+                        init_cond = init_cond.float()
+                        sol = sol.float()
+                        pred=torchodeint(calDeriv, init_cond, t_int_valid, adjoint_params=[], rtol=1e-5, atol=1e-7, method='dopri5') 
+                        diff=torch.square((pred-sol.transpose(0,1)))
+                        sum_loss +=diff.sum().detach().item()
+                        count += diff.numel()
+                    self.loss_list_valid.append(sum_loss/count)
+                    self.epoch_list_valid.append(epoch)
                 with torch.no_grad():
                     try: 
                         pred_test=torchodeint(calDeriv, self.init_cond, self.t, adjoint_params=[], rtol=1e-5, atol=1e-7)
-                        self.loss_list_test.append(torch.mean(torch.square(pred_test[self.samples_train:,0, :]-self.soln_arr[self.samples_train:, :])).detach().cpu())
-                        self.epoch_list_test.append(epoch)
-                        t = self.t
+                        t=self.t
                     except AssertionError as e:
                         print(f"Numerical instability encountered at epoch {epoch}: {e}")
-                        self.loss_list_test.append(float('inf'))
-                        self.epoch_list_test.append(epoch)
-                        # pred_test = torchodeint(calDeriv, self.init_cond, self.t_train, adjoint_params=[], rtol=1e-5, atol=1e-7)
                         pred_test = torch.zeros((self.soln_arr.shape[0], 1, self.soln_arr.shape[1]))
                         t = self.t
             # if epoch % 10==0 and epoch != 0:
             #     self.model(self.soln_arr.float(), update_grid=True)
             #if epoch ==5:  # seems like they never update the grid....
             #    model.update_grid_from_samples(X0)
-            if loss_train<self.loss_min:
-                self.loss_min = loss_train
-                if self.cp_freq + last <= epoch:
-                    self.save_checkpoint(epoch, os.path.join(self.cpf, "best.pt"))
-                    self.plotter(pred_test[:,0,:], epoch, t, True)
-                    last = int(epoch)
+            if self.valid is not None:
+                if self.loss_list_valid[-1]<self.loss_min:
+                    self.loss_min = self.loss_list_valid[-1]
+                    if self.cp_freq + last <= epoch:
+                        self.save_checkpoint(epoch, os.path.join(self.cpf, "best.pt"))
+                        self.plotter(pred_test[:,0,:], epoch, t, True)
+                        last = int(epoch)
             
             bar.set_postfix(loss=loss, lr=scheduler.get_last_lr())
             if epoch % self.plot_freq ==0:
@@ -374,31 +409,33 @@ if __name__=='__main__':
     
     
     # soln_array, t = get_data_lorenz63()
+    # valid, _ = get_data_lorenz63(test=True, name="valid.dat")
     # init_cond = soln_array[0, :] 
     # trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init_cond=init_cond, 
     #                   data=soln_array, t=t, plot_F=200, checkpoint_freq=500, 
     #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz/1step_train", 
-    #                   tf=20, tf_train=16, lr=0.001, 
-    #                   image_folder="images/Lorenz", normalize=True) #  model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_1000.pt")
-    # trainer.train(num_epochs=10000, val_freq=10, batch_size=128, n_min=2, n_max=6)
+    #                   tf=20, tf_train=16, lr=0.001, valid=valid,
+    #                   image_folder="images/Lorenz", normalize=True, model_path="TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_6000.pt")
+    # trainer.train(num_epochs=10000, val_freq=200, batch_size=128, n_min=2, n_max=6)
     
     
     # Test different rollout lengths
-    # soln_array, t = get_data_lorenz63(test=True, harder_test=True)
-    
-    # init_cond = soln_array[0, :] 
-    # trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init
-    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-    #                   tf=20, tf_train=2.5, lr=0.001, 
-    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/MODEL_6nodes_IR.pt", normalize=True)
-    # trainer.test_model([50, 100, 500], model_name="MODEL6_IR_hard", title="6 hidden IR")
+    soln_array, t = get_data_lorenz63(test=True, name="test.dat")
+    init_cond = soln_array[0, :] 
+    trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, data = soln_array, t=t, plot_F=200, checkpoint_freq=500,
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+                      tf=20, tf_train=2.5, lr=0.01, 
+                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/MODEL4NODES_CR_Final.pt", normalize=True)
+    trainer.test_model([50, 100, 500], model_name="abcd", title="6 hidden CR")
 
     
-    models = ["1step_train/MODEL6NODES.pt", "1step_train/MODEL4NODES.pt", "MODEL_6nodes_IR.pt", "MODEL_4nodes_IR.pt"]
-    dims = [6, 4, 6, 4]
-    labels = ["6 hidden CR", "4 hidden CR", "6 hidden IR", "4 hidden IR"]
-    colors = ["r", "k", "lightcoral", "grey",]
-    plot_train_cycles(models, dims, labels, colors)
+    # models = ["1step_train/MODEL6NODES.pt", "1step_train/MODEL6NODES_wreg.pt", "MODEL6NODES_IR_nureg.pt", "MODEL_6nodes_IR.pt"]
+    # # dims = [6, 4, 6, 4]
+    # dims = [6, 6, 6, 6]
+    # # labels = ["6 hidden CR", "4 hidden CR", "6 hidden IR", "4 hidden IR"]
+    # labels = ["new reg cr", "reg cr", "new reg ir", "old ir"]
+    # colors = ["r", "k", "lightcoral", "grey",]
+    # plot_train_cycles(models, dims, labels, colors)
     
     
     

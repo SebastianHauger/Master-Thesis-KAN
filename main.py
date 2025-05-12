@@ -113,8 +113,9 @@ def load_trained_UKAN_ptfile(name,device, KAN, large=True):
     print(checkpoint["validation_loss"])
     # print(checkpoint["train_loss"])
     print(checkpoint["epoch"])
-    model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    
     return model
 
 def load_trained_UKAN_pth_file(name, device):
@@ -128,11 +129,13 @@ def load_trained_UKAN_pth_file(name, device):
     return model
 
 
-def plot_prediction(model, device, plot_fields, epochs):
+def plot_prediction(model, device, title, name):
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
-    test_loader = DataLoader(test, 1, shuffle=False) 
+    test_loader = DataLoader(test, 1, shuffle=False)
+    model.eval() 
     with torch.no_grad():
-        batch = next(islice(test_loader, 400, 401))
+        # batch = next(islice(test_loader, 400, 401))
+        batch = next(iter(test_loader))
         vrmse = VRMSE()
         x = batch["input_fields"]
         x = x.to(device)
@@ -143,7 +146,7 @@ def plot_prediction(model, device, plot_fields, epochs):
         yp = model(x)
         yp = rearrange(yp, "B C Lx Ly -> B 1 Lx Ly C")
         # print(test.metadata.n_spatial_dims)
-        print(vrmse.eval(yp, y, test.metadata).mean())
+        print(vrmse.eval(yp, y, test.metadata))
         yp = rearrange(yp, "b f h w c -> b (f c) h w")
         y = rearrange(y,  "b f h w c -> b (f c) h w")
         
@@ -153,11 +156,9 @@ def plot_prediction(model, device, plot_fields, epochs):
         x = x[0].detach().numpy()
         y = y[0].detach().numpy()
         yp = yp[0].detach().numpy()
-        
-       
         fig, axs = plt.subplots(3, 3, figsize=(3 * 2.1, 3 * 1.2))
         for field in range(3):
-            a = np.abs(x[field] - y[field])
+            a = np.abs(x[field]-y[field])
             b = np.abs(y[field]-yp[field])
             c = np.abs(yp[field]-x[field])
             diffs = [a, b, c]
@@ -166,27 +167,16 @@ def plot_prediction(model, device, plot_fields, epochs):
                 axs[field, i].imshow(diffs[i], cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
                 axs[field, i].set_xticks([])
                 axs[field, i].set_yticks([])
-        axs[0, 0].set_title("|X-Y|")
-        axs[0, 1].set_title("|Y-Y'|")
-        axs[0, 2].set_title("|X-Y'|")
-        axs[0, 0].set_ylabel("height")
-        axs[1, 0].set_ylabel("velocity theta")
-        axs[2, 0].set_ylabel("velocity phi")
+        axs[0, 0].set_title("|X-Y|", fontsize=14)
+        axs[0, 1].set_title("|Y-Y'|", fontsize=14)
+        axs[0, 2].set_title("|X-Y'|", fontsize=14)
+        axs[0, 0].set_ylabel("height", fontsize=9)
+        axs[1, 0].set_ylabel("velocity theta", fontsize=9)
+        axs[2, 0].set_ylabel("velocity phi", fontsize=9)
+        fig.suptitle(title, fontsize=14)
         plt.tight_layout()
-        plt.savefig(os.path.join(IMAGE_DIR, f"{epochs}epochs_train.pdf"), bbox_inches='tight', dpi=200)
+        plt.savefig(os.path.join(IMAGE_DIR, name+"_gradients.pdf"), bbox_inches='tight', dpi=200)
         plt.show()
-        if plot_fields:
-            fig, axs = plt.subplots(3, 3) 
-            for field in range(3):
-                axs[field, 0].imshow(x[field], cmap="RdBu_r", interpolation="none")
-                axs[field, 1].imshow(y[field], cmap="RdBu_r", interpolation="none")
-                axs[field, 2].imshow(yp[field], cmap="RdBu_r", interpolation="none")
-                axs
-            axs[0, 0].set_title("Input")
-            axs[0, 1].set_title("Target")
-            axs[0, 2].set_title("Prediction")
-            axs
-            plt.show()
             
             
 
@@ -195,8 +185,11 @@ def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Lar
     previous step..."""
     test = get_dataset("test", PATH_TO_BASE_HOME, normalize=True)
     test_loader = DataLoader(test, 1, shuffle=False) # We do not shuffle to be able to see the developement of error.
+    model1.eval()
+    model2.eval()
+    model3.eval()
     with torch.no_grad():
-        batch = next(islice(test_loader, 400, 401))
+        batch = next(iter(test_loader))
         x1 = batch["input_fields"]
         x1 = x1.to(device)
         x1 = rearrange(x1, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
@@ -215,7 +208,7 @@ def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Lar
         x3 = x1
      
         
-        for i, batch in enumerate(islice(test_loader, 400, 400+n+1)):
+        for i, batch in enumerate(islice(test_loader, 0, 401)):
             if i != 0:
                 x1 = model1(x1)
                 x2 = model2(x2)
@@ -254,51 +247,20 @@ def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Lar
                     axs[j, i].set_xticks([])
                     axs[j, i].set_yticks([])
                     
-                axs[0, i].set_title(f"t = {times[i]}", fontsize=22)
+                axs[0, i].set_title(f"t = {times[i]}", fontsize=30)
                 
                 axs[0, i].set_yticks([])
                 axs[1, i].set_yticks([])  
                 
-            axs[0, 0].set_ylabel(f"S UKAN", fontsize=22)
-            axs[1, 0].set_ylabel(f"UNet", fontsize=22)
-            axs[2, 0].set_ylabel(f"L UKAN", fontsize=22)
-            axs[3, 0].set_ylabel(f"GT", fontsize=22)
-            fig.suptitle(names[field], fontsize=26)
+            axs[0, 0].set_ylabel(f"S UKAN", fontsize=25)
+            axs[1, 0].set_ylabel(f"UNet", fontsize=25)
+            axs[2, 0].set_ylabel(f"L UKAN", fontsize=25)
+            axs[3, 0].set_ylabel(f"GT", fontsize=25)
+            fig.suptitle(names[field], fontsize=30)
             plt.tight_layout()
             fig.savefig(os.path.join(IMAGE_DIR, name+name_F[field]+"_rollout.pdf"), dpi=200, bbox_inches='tight')
             plt.show()
             
-        
-        
-        # fig, axs = plt.subplots(1,3, figsize=(3 * 5, 2.5))
-        # x = x[0].detach().numpy()
-        # xtr = xtr[0].detach().numpy()
-        # for field in range(3):
-        #     diff = np.abs(x[field] - xtr[field])
-        #     gmax = diff.max()
-        #     axs[field].imshow(diff, cmap="RdBu_r", interpolation="none", vmin=0, vmax=gmax)
-        #     axs[field].set_xticks([])
-        #     axs[field].set_yticks([])
-        # axs[0].set_title("height")
-        # axs[1].set_title("velocity theta")
-        # axs[2].set_title("velocity phi")
-        # fig.suptitle(f"Difference pred, inp after {n} steps")
-        # plt.tight_layout()
-        # plt.savefig(f"images/ErrorAfter{n}Steps.pdf", bbox_inches='tight', dpi=200)
-        # plt.show()
-        # plt.figure()
-        # xax = list(range(1, n+1))
-        # plt.plot(xax,diffxpred, label="mse(x, yp)")
-        # plt.plot(xax,diffypred, label="mse(y, yp)")
-        # plt.plot(xax,mse_grad, label="mse(gradient)")
-        # plt.ylabel("Error")
-        # plt.xlabel("Iteration")
-        # plt.title("Autoregressive error of predictor")
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.savefig("images/EvolutionOfError.pdf", bbox_inches='tight', dpi=200)
-        # plt.show()
-    
             
 def get_num_trainable_parameters(model):
     # get the number of trainable parameters. 
@@ -310,11 +272,11 @@ if __name__=='__main__':
     # model = UNetClassic(3, 3, )
     # model = train_UKAN(1, 0.01, device, bs=1, home=True, padding='asym_all')
     unet = load_trained_UKAN_ptfile("recent_UNet.pt", device, KAN=False)
-    large_ukan = load_trained_UKAN_ptfile("recent.pt", device, KAN=True)
+    large_ukan = load_trained_UKAN_ptfile("recent_UKAN_large.pt", device, KAN=True)
     small_ukan = load_trained_UKAN_ptfile("recent_UKAN_small.pt", device, KAN=True, large=False)
     # model = SmallUKAN(padding='asym_all')
     # print(get_num_trainable_parameters(model))
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
-    # plot_prediction(model, device, False, epochs="50")
+    # plot_prediction(unet, device, "U-net gradient prediction", name="U-net")
     plot_error_after_n_steps(small_ukan, unet, large_ukan, 400, device, [25, 100 , 200, 400], "comparrison_")

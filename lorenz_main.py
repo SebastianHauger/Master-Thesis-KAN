@@ -61,11 +61,47 @@ def gen_and_save_data(filename):
     np.savetxt("Results/results_lorenz/"+filename, data, delimiter=' ', fmt='%f')
     
 
+def plot_input_space(filenames, labels, savename, testkeys):
+    fields = []
+    for filename, value in zip(filenames, testkeys):
+        field, _ = get_data_lorenz63(value, filename)
+        fields.append(field)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    for i, field in enumerate(fields):
+        ax.scatter(field[:,0], field[:, 1], field[:,2], label=labels[i], alpha=0.5, s=2)
+    fig.suptitle("Input space")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    if len(labels) > 1:
+        ax.legend()
+    fig.savefig("images/Lorenz/"+savename+".pdf", dpi=200, bbox_inches='tight')
+    fig.show()
+    
+def get_file_and_normalize_on_self(filename, normalize=True):
+    array = np.loadtxt("Results/results_lorenz/"+filename, delimiter = ' ')
+    fields = array[:, 1:]
+    t = array[:, 0]
+    if normalize:
+        for i in range(3):
+            fields[:, i] = (fields[:,i]-fields[:,i].mean())/fields[:,i].std()
+    return fields, t 
+    
+    
+
+
 if __name__=='__main__':
-    gen_and_save_data("difficult.dat")
-    ts, t = get_data_lorenz63(test=True, harder_test=True)
+    # filename = "valid.dat"
+    # gen_and_save_data(filename)
+    # ts, t = get_data_lorenz63(test=True, name=filename)
+    filenames = [ "truth.dat", "test.dat", "valid.dat"]
+    labels = ["Training", "Test", "Validation"]
+    testkeys = [False, True, True]
+    plot_input_space(filenames, labels, "input_spaces", testkeys)
     # print(ts[25000,:])
-    plot_data(t, ts, name="HARDtest")
+    # plot_data(t, ts, name="Validation")
     
     
     
