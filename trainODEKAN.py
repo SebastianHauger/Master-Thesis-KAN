@@ -38,9 +38,9 @@ def gen_data_pred_prey(X0, alpha, beta, delta, gamma, tf, N_t):
     return soln_arr, t
 
 
-def plot_train_cycles(models, dims, labels, colors):
+def plot_train_cycles(models, dims, labels, colors, name_save, name_title):
     plt.figure()
-    soln_array, t = get_data_lorenz63(test=True, harder_test=True)
+    soln_array, t = get_data_lorenz63(test=False, name="")
     
     init_cond = soln_array[0, :] 
     
@@ -51,11 +51,13 @@ def plot_train_cycles(models, dims, labels, colors):
                       tf=20, tf_train=2.5, lr=0.001, 
                       image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/"+model, normalize=True)
         plt.semilogy(tr.loss_list_train, label=label, color=color, linewidth=0.5, alpha=.8)
+        plt.semilogy(tr.epoch_list_valid, tr.loss_list_valid, label=label+" Valid", color=color, linewidth=0.5, alpha=.8, linestyle='--')
+    plt.grid(which="both")
     plt.legend(loc="best", ncols=2, fontsize=14)
-    plt.title("Training loss", fontsize=16)
+    plt.title("Training loss "+ name_title, fontsize=16)
     plt.xlabel("epoch", fontsize=14)
     plt.ylabel("MSE", fontsize=14)
-    plt.savefig("images/Lorenz/optimal/LOSS_ODEKAN.pdf", dpi=200, bbox_inches="tight")
+    plt.savefig("images/Lorenz/optimal/LOSS_ODEKAN_"+name_save+".pdf", dpi=200, bbox_inches="tight")
     plt.show() 
 
 
@@ -381,7 +383,82 @@ class Trainer:
     
     
 
-        
+
+def plot_errors_lorenz(model, data, filepath, title, savename):
+    model.eval()
+    traindata = np.loadtxt("Results/results_lorenz/truth.dat")[:, 1:]
+    test = np.loadtxt(filepath)[:, 1:]
+    def lorenz63_deriv(state):
+        beta = 2.6666666666666665
+        rho = 28
+        sigma=10
+        dx = (sigma * (state[:,1] - state[:,0]))/traindata[:,0].std()
+        dy = (rho*state[:,0] - state[:,1] - state[:,0]*state[:,2])/traindata[:,1].std()
+        dz = (state[:,0]*state[:,1] - beta*state[:,2])/traindata[:, 2].std()
+        return np.array([dx, dy, dz]).T
+    deriv = lorenz63_deriv(test)
+    norm_deriv = np.linalg.norm(deriv, axis=1)
+    errors = np.linalg.norm((model(data.float()).detach().numpy()-deriv), axis=1)/norm_deriv
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    sc = ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=errors, cmap="RdBu_r", vmin=0, vmax=np.percentile(errors, 99.5))
+    cbar = plt.colorbar(sc, ax=ax, pad=0.1)
+    cbar.set_label('Relative error', fontsize=16)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    plt.title("Gradient error along trajectory. " + title, fontsize=18)
+    plt.tight_layout()
+    plt.savefig("images/Lorenz/optimal/error_trajectory_"+savename +".pdf", dpi=200, bbox_inches='tight')
+    plt.show()
+    plt.figure()
+    bins = np.logspace(np.log10(errors.min()), np.log10(errors.max()), 20)
+    plt.hist(errors, bins=bins)
+    plt.title("Gradient error. " + title,)
+    plt.xlabel("Relative error", fontsize=14)
+    plt.ylabel(r"\#samples", fontsize=14)
+    plt.xscale('log')
+    plt.savefig("images/Lorenz/optimal/hist_errors_"+savename+".pdf", dpi=200, bbox_inches='tight')
+    plt.show()
+    
+    
+def plot_errors_fieldwise_lorenz(model, data, filepath, title, savename):
+    model.eval()
+    traindata = np.loadtxt("Results/results_lorenz/truth.dat")[:, 1:]
+    test = np.loadtxt(filepath)[:, 1:]
+    def lorenz63_deriv(state):
+        beta = 2.6666666666666665
+        rho = 28
+        sigma=10
+        dx = (sigma * (state[:,1] - state[:,0]))/traindata[:,0].std()
+        dy = (rho*state[:,0] - state[:,1] - state[:,0]*state[:,2])/traindata[:,1].std()
+        dz = (state[:,0]*state[:,1] - beta*state[:,2])/traindata[:, 2].std()
+        return np.array([dx, dy, dz]).T
+    deriv = lorenz63_deriv(test)
+    # norm_deriv = np.linalg.norm(deriv, axis=1)
+    errors = np.abs(model(data.float()).detach().numpy()-deriv)/np.abs(deriv)
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    sc = ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=errors, cmap="RdBu_r", vmin=0, vmax=np.percentile(errors, 99.5))
+    cbar = plt.colorbar(sc, ax=ax, pad=0.1)
+    cbar.set_label('Relative error', fontsize=16)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    plt.title("Gradient error along trajectory. " + title, fontsize=18)
+    plt.tight_layout()
+    plt.savefig("images/Lorenz/optimal/error_trajectory_"+savename +".pdf", dpi=200, bbox_inches='tight')
+    plt.show()
+    plt.figure()
+    bins = np.logspace(np.log10(errors.min()), np.log10(errors.max()), 20)
+    plt.hist(errors, bins=bins)
+    plt.title("Gradient error. " + title,)
+    plt.xlabel("Relative error", fontsize=14)
+    plt.ylabel(r"\#samples", fontsize=14)
+    plt.xscale('log')
+    plt.savefig("images/Lorenz/optimal/hist_errors_"+savename+".pdf", dpi=200, bbox_inches='tight')
+    plt.show()
+       
         
 
 
@@ -420,23 +497,35 @@ if __name__=='__main__':
     
     
     # Test different rollout lengths
-    soln_array, t = get_data_lorenz63(test=True, name="test.dat")
-    init_cond = soln_array[0, :] 
-    trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, data = soln_array, t=t, plot_F=200, checkpoint_freq=500,
-                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
-                      tf=20, tf_train=2.5, lr=0.01, 
-                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/MODEL4NODES_CR_Final.pt", normalize=True)
-    trainer.test_model([50, 100, 500], model_name="abcd", title="6 hidden CR")
+    # soln_array, t = get_data_lorenz63(test=True, name="test.dat")
+    # init_cond = soln_array[0, :] 
+    # trainer = Trainer(n_dims=3, n_hidden=4, grid_size=5, init_cond=init_cond, data = soln_array, t=t, plot_F=200, checkpoint_freq=500,
+    #                   checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+    #                   tf=20, tf_train=2.5, lr=0.01, 
+    #                   image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/MODEL4NODES_IR_Final.pt", normalize=True)
+    # trainer.test_model([50, 100, 500], model_name="4hidden_Ir", title="4 hidden IR")
 
     
     # models = ["1step_train/MODEL6NODES.pt", "1step_train/MODEL6NODES_wreg.pt", "MODEL6NODES_IR_nureg.pt", "MODEL_6nodes_IR.pt"]
+    # models = ["1step_train/FINALCR6_FINAL.pt", "1step_train/last.pt"]
+    # models = ["1step_train/MODEL4NODES_CR_Final.pt", "1step_train/MODEL4NODES_IR_FINAL.pt"]
     # # dims = [6, 4, 6, 4]
-    # dims = [6, 6, 6, 6]
+    # dims = [4, 4]
     # # labels = ["6 hidden CR", "4 hidden CR", "6 hidden IR", "4 hidden IR"]
-    # labels = ["new reg cr", "reg cr", "new reg ir", "old ir"]
-    # colors = ["r", "k", "lightcoral", "grey",]
-    # plot_train_cycles(models, dims, labels, colors)
+    # labels = ["CR", "IR"]
+    # colors = ["r", "k"]
+    # plot_train_cycles(models, dims, labels, colors, name_save="4nodes", name_title="4 Nodes")
     
+    
+    
+    soln_array, t = get_data_lorenz63(test=True, name="test.dat")
+    init_cond = soln_array[0, :] 
+    trainer = Trainer(n_dims=3, n_hidden=6, grid_size=5, init_cond=init_cond, data = soln_array, t=t, plot_F=200, checkpoint_freq=500,
+                      checkpoint_folder="TrainedModels/ODEKans/Lorenz", 
+                      tf=20, tf_train=2.5, lr=0.01, 
+                      image_folder="images/Lorenz", model_path="TrainedModels/ODEKans/Lorenz/1step_train/last.pt", normalize=True)
+    
+    plot_errors_lorenz(trainer.model, trainer.soln_arr, "Results/results_lorenz/test.dat", "6 nodes IR", savename="6nodesIR")
     
     
         

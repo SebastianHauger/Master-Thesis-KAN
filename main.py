@@ -197,8 +197,9 @@ def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Lar
         y = y.to(device)
         y = rearrange(y, "B Ti Lx Ly F -> B (Ti F) Lx Ly") 
         xtr = x1
-        diffxpred = []
-        diffypred = []
+        diffypred1 = []
+        diffypred2 = []
+        diffypred3 = []
         mse_grad = []
         fields = []
         plotx1 = []
@@ -208,18 +209,18 @@ def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Lar
         x3 = x1
      
         
-        for i, batch in enumerate(islice(test_loader, 0, 401)):
+        for i, batch in enumerate(islice(test_loader, 0, n+1)):
             if i != 0:
                 x1 = model1(x1)
                 x2 = model2(x2)
                 x3 = model3(x3)
                 print(f"Diff x pred {(xtr-x1).square().mean()}")
-                mse_grad.append((xtr-y).square().mean().detach().item())
-                diffxpred.append((xtr-x1).square().mean().detach().item())
                 xtr = batch["input_fields"]
                 xtr = xtr.to(device)
                 xtr = rearrange(xtr, "B Ti Lx Ly F -> B (Ti F) Lx Ly")
-                diffypred.append((xtr-x1).square().mean().detach().item())
+                diffypred1.append((xtr-x1).square().mean().detach().item())
+                diffypred2.append((xtr-x2).square().mean().detach().item())
+                diffypred3.append((xtr-x3).square().mean().detach().item())
                 print(f"diff should be zero {(y-xtr).square().mean()}")
                 print(f"error out after {i+1} steps {(y-x1).square().mean()}")
                 print(f"error after {i+1} steps: {(xtr-x1).square().mean()}")
@@ -247,19 +248,36 @@ def plot_error_after_n_steps(model1, model2, model3, n, device, times, name="Lar
                     axs[j, i].set_xticks([])
                     axs[j, i].set_yticks([])
                     
-                axs[0, i].set_title(f"t = {times[i]}", fontsize=30)
+                axs[0, i].set_title(f"t = {times[i]}", fontsize=36)
                 
                 axs[0, i].set_yticks([])
                 axs[1, i].set_yticks([])  
                 
-            axs[0, 0].set_ylabel(f"S UKAN", fontsize=25)
-            axs[1, 0].set_ylabel(f"UNet", fontsize=25)
-            axs[2, 0].set_ylabel(f"L UKAN", fontsize=25)
-            axs[3, 0].set_ylabel(f"GT", fontsize=25)
-            fig.suptitle(names[field], fontsize=30)
+            axs[0, 0].set_ylabel(f"S UKAN", fontsize=36)
+            axs[1, 0].set_ylabel(f"U-net", fontsize=36)
+            axs[2, 0].set_ylabel(f"L UKAN", fontsize=36)
+            axs[3, 0].set_ylabel(f"GT", fontsize=36)
+            fig.suptitle(names[field], fontsize=36)
             plt.tight_layout()
             fig.savefig(os.path.join(IMAGE_DIR, name+name_F[field]+"_rollout.pdf"), dpi=200, bbox_inches='tight')
             plt.show()
+        plt.figure()
+        xax = list(range(1, n+1))
+        plt.plot(diffypred1, linewidth=0.8, color="k", label="Small UKAN")
+        plt.plot(diffypred2, linewidth=0.8, color='r', label="U-net")
+        plt.plot(diffypred3, linewidth=0.8, color='b', label="Large UKAN")
+        plt.title("Rollout error growth", fontsize=16)
+        plt.ylabel("MSE", fontsize=14)
+        plt.xlabel("Rollout step", fontsize=14)
+        plt.ylim((-0.5, 2.0))
+        plt.legend(fontsize=12)
+        plt.tight_layout()
+        plt.savefig(os.path.join(IMAGE_DIR,"rollout_error_growth.pdf"), dpi=200, bbox_inches='tight')
+        plt.show()
+        
+        
+        
+        
             
             
 def get_num_trainable_parameters(model):
@@ -279,4 +297,4 @@ if __name__=='__main__':
     # model = load_trained_UKAN_pth_file("UKAN.pth", device)
     # test_model(model, device) 
     # plot_prediction(unet, device, "U-net gradient prediction", name="U-net")
-    plot_error_after_n_steps(small_ukan, unet, large_ukan, 400, device, [25, 100 , 200, 400], "comparrison_")
+    plot_error_after_n_steps(small_ukan, unet, large_ukan, 300, device,  [25, 100 , 200, 300], "comparrison_")

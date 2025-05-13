@@ -4,7 +4,7 @@ from ODE_KAN import KAN
 import torch.nn.functional as F
 
 
-def plot_activations(kan, name=""):
+def plot_activations(kan, title,  name=""):
     # axis = torch.linspace(-2, 2, 50)
     kan.eval()
     layer0 = kan.layers[0]
@@ -12,7 +12,8 @@ def plot_activations(kan, name=""):
     grid0 = layer0.grid
     hidden_dim = layer0.out_features
     
-    
+    plt.rcParams['xtick.labelsize'] = 6  # Set x-axis tick size
+    plt.rcParams['ytick.labelsize'] = 6  # Set y-axis tick size
     
     
     fig, ax = plt.subplots(in_dim, hidden_dim, sharex=False, sharey=False)
@@ -23,11 +24,14 @@ def plot_activations(kan, name=""):
         Xout = kan.normalizations[0](layer0(X)).detach().numpy()
         X = X.detach().numpy()
         for j in range(hidden_dim):
-            ax[i,j].plot(X[:, i], Xout[:, j])
+            ax[i,j].plot(X[:, i], Xout[:, j], color="k")
             # ax[i, j].set_aspect('equal')
-    fig.suptitle("Input->Hidden activations")
+            ax[i,j].grid()
+    fig.suptitle("Input- to hidden layer activations. " + title)
     fig.supylabel("Input index")
-    fig.supxlabel("Hidden index" + name)
+    fig.supxlabel("Hidden index")
+    
+    fig.tight_layout()
     plt.savefig("images/Lorenz/Activations/" + name + "_in_hidden.pdf", dpi=200, bbox_inches="tight")
     plt.show()
     
@@ -45,11 +49,13 @@ def plot_activations(kan, name=""):
         Xout2 = kan.normalizations[1](layer1(X)).detach().numpy()
         X = X.detach().numpy()
         for j in range(in_dim):
-            ax[i,j].plot(X[:, i], Xout2[:, j])
+            ax[i,j].plot(X[:, i], Xout2[:, j], color="k")
+            ax[i,j].grid()
             # ax[i, j].set_aspect('equal')
-    fig.suptitle("Hidden->Output activations")
+    fig.suptitle("Hidden- to Output layer activations. "+ title)
     fig.supylabel("Hidden index")
     fig.supxlabel("Output index")
+    fig.tight_layout()
     plt.savefig("images/Lorenz/Activations/"+ name+ "_hidden_out.pdf", dpi=200, bbox_inches='tight')
     plt.show()
     
@@ -63,11 +69,11 @@ def plot_activations(kan, name=""):
 
 
 if __name__ == '__main__':
-    model = KAN(layers_hidden=[3, 6, 3], grid_size=5, normalize=True)
+    model = KAN(layers_hidden=[3, 4, 3], grid_size=5, normalize=True)
     # trained = torch.load("TrainedModels/ODEKans/Lorenz/MODEL_6nodes_IR.pt")
-    trained = torch.load("TrainedModels/ODEKans/Lorenz/1step_train/checkpoint_1000.pt")
+    trained = torch.load("TrainedModels/ODEKans/Lorenz/1step_train/MODEL4NODES_CR_Final.pt")
     model.load_state_dict(trained["model_state_dict"])
-    print(model.normalizations[0].weight)
-    print(model.normalizations[0].bias)
-    plot_activations(model, name="CR_6nodes_entropyreg")
+    # print(model.normalizations[0].weight)
+    # print(model.normalizations[0].bias)
+    plot_activations(model, title ="CR 4 nodes", name="CR_4nodes")
     
