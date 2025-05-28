@@ -93,15 +93,15 @@ def get_file_and_normalize_on_self(filename, normalize=True):
 
 
 if __name__=='__main__':
-    # filename = "valid.dat"
-    # gen_and_save_data(filename)
-    # ts, t = get_data_lorenz63(test=True, name=filename)
-    filenames = [ "truth.dat", "test.dat", "valid.dat"]
-    labels = ["Training", "Test", "Validation"]
-    testkeys = [False, True, True]
-    plot_input_space(filenames, labels, "input_spaces", testkeys)
+    filename = "dummy.dat"
+    gen_and_save_data(filename)
+    ts, t = get_data_lorenz63(test=True, name=filename)
+    # filenames = [ "truth.dat", "test.dat", "valid.dat"]
+    # labels = ["Training", "Test", "Validation"]
+    # testkeys = [False, True, True]
+    # plot_input_space(filenames, labels, "input_spaces", testkeys)
     # print(ts[25000,:])
-    # plot_data(t, ts, name="Validation")
+    plot_data(t, ts, name="Validation")
     
     
     
