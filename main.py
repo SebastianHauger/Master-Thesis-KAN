@@ -1,6 +1,6 @@
 """root of the simulation. Run files from here."""
 from torch.utils.data import DataLoader
-from new_UKAN_proposal import UKAN
+from UKAN_large import UKAN
 # from the_well.benchmark.models.unet_classic import UNetClassic
 from the_well.data import WellDataset, WellDataModule
 from UNET_classic import UNetClassic
